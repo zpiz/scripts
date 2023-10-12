@@ -1,14 +1,14 @@
 {
   "id": "fokit.app.sub",
   "name": "FoKit 应用订阅",
-  "author": "@FoKit",
+  "author": "@zpiz",
   "icon": "https://avatars.githubusercontent.com/u/44187836",
   "repo": "https://github.com/FoKit",
   "apps": [
     {
       "id": "ql",
       "name": "数据同步",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["用于JD1/JD2和BoxJS之间的数据同步"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/sync.png",
@@ -138,7 +138,7 @@
     {
       "id": "tools",
       "name": "Tools",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["自用工具"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/debug.png",
@@ -158,7 +158,7 @@
     {
       "id": "jparking",
       "name": "捷停车",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["捷停车签到"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/jparking.png",
@@ -234,7 +234,7 @@
     {
       "id": "Analyzing",
       "name": "活动解析",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["用于解析京东活动数据"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/analyzing.png",
@@ -273,7 +273,7 @@
     {
       "id": "wskey",
       "name": "京东WSKEY",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["用于自动抓取京东WSKEY"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/jdjoy.png",
@@ -321,7 +321,7 @@
     {
       "id": "string_replace",
       "name": "字符串替换",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["字符串替换工具"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/default.png",
@@ -352,7 +352,7 @@
     {
       "id": "token_95598",
       "name": "南网在线Token",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["南网在线Token"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/95598.png",
@@ -372,7 +372,7 @@
     {
       "id": "12123",
       "name": "交管12123",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["交管12123数据"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/12123.png",
@@ -401,7 +401,7 @@
     {
       "id": "huawei_cloud",
       "name": "华为云服务",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["华为云服务 Cookie"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/huawei.png",
@@ -421,7 +421,7 @@
     {
       "id": "china_telecom",
       "name": "中国电信",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "descs_html": ["中国电信 Cookie"],
       "icons": [
         "https://raw.githubusercontent.com/FoKit/Scripts/main/images/china_telecom.png",
@@ -448,7 +448,7 @@
     {
       "id": "feng.com",
       "name": "威锋论坛",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "https://raw.githubusercontent.com/FoKit/Scripts/main/scripts/weifeng.js",
       "descs_html": [""],
       "icons": [
@@ -483,7 +483,7 @@
     {
       "id": "ThomasCook",
       "name": "托迈酷客",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "https://raw.githubusercontent.com/FoKit/Scripts/main/scripts/ThomasCook.js",
       "descs_html": [""],
       "icons": [
@@ -504,7 +504,7 @@
     {
       "id": "iMaoTai",
       "name": "i茅台",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "",
       "descs_html": [""],
       "icons": [
@@ -585,7 +585,7 @@
     {
       "id": "MiSport",
       "name": "小米运动",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "",
       "descs_html": [""],
       "icons": [
@@ -633,7 +633,7 @@
     {
       "id": "buy_helper",
       "name": "购物助手",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "",
       "descs_html": [
         "用于京东、京喜和京喜特价京粉转链，支持慢慢买、购物党和什么值得买跳转比价。"
@@ -754,7 +754,7 @@
     {
       "id": "jhsh",
       "name": "建行生活",
-      "author": "@FoKit",
+      "author": "@zpiz",
       "script": "https://raw.githubusercontent.com/FoKit/Scripts/main/scripts/jhsh_checkIn.js",
       "descs_html": [""],
       "icons": [
