@@ -1,6 +1,6 @@
 /*
 [rewrite_local]
-^https:\/\/user-api\.smzdm\.com\/personal_data\/info\/$ url script-response-body Scripts/SMZDM_COOKIE.js
+^https:\/\/user-api\.smzdm\.com\/personal_data\/info\/$ url script-response-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/SMZDM_COOKIE.js
 
 [MITM]
 hostname = user-api.smzdm.com
