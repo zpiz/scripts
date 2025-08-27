@@ -1,0 +1,24 @@
+#!name=曹操出行去广告
+#!desc=拦截曹操出行开屏广告、横幅广告、弹窗广告等
+#!author=Sliverkiss
+#!date=2025-08-27
+
+[Map Local]
+# > 曹操出行广告拦截
+^https:\/\/ccimgs\.oss\.aliyuncs\.com\/\/advert\/picture data-type=text data="{}" status-code=200
+^https:\/\/cap\.caocaokeji\.cn\/advert-bss\/pullAdvertMaterial data-type=text data="{}" status-code=200
+^https:\/\/cap\.caocaokeji\.cn\/advert-bss\/pullAdvert data-type=text data="{}" status-code=200
+^https:\/\/cdncc-frontend\.caocaokeji\.cn\/2\/specialCarTeam\/onLine data-type=text data="{}" status-code=200
+^https:\/\/cdncc-frontend\.caocaokeji\.cn\/2\/demand-center-server\/images\/qipao\.gif data-type=text data="{}" status-code=200
+^https:\/\/ccimgs\.oss-cn-hangzhou\.aliyuncs\.com\/customer\/20230517\/64646b8d7c01910053a944ad data-type=text data="{}" status-code=200
+^https:\/\/cospimgs-cdn\.caocaokeji\.cn\/advertFile data-type=text data="{}" status-code=200
+^https:\/\/mobile\.caocaokeji\.cn\/cap\/advert-bss\/pullAdvert\/1\.0\.0 data-type=text data="{}" status-code=200
+^https:\/\/cap\.caocaokeji\.cn\/bps\/msgBarAgg\/2\.0 data-type=text data="{}" status-code=200
+
+[URL Rewrite]
+# > 曹操出行广告/弹窗
+^https:\/\/mobile\.caocaokeji\.cn\/cap\/cmall-core\/home\/1\.0$ - reject
+^https:\/\/cap\.caocaokeji\.cn\/security-center\/querySecTipsResource\/2\.0$ - reject
+
+[MITM]
+hostname = %APPEND% ccimgs.oss.aliyuncs.com, ccimgs.oss-cn-hangzhou.aliyuncs.com, cap.caocaokeji.cn, cdncc-frontend.caocaokeji.cn, mobile.caocaokeji.cn, cospimgs-cdn.caocaokeji.cn
