@@ -1,7 +1,6 @@
 {
   "name": "Links'Tasks",
   "description": "自用的定时任务，收集于网络，如有侵权可联系删除",
-  "raw": "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/qx_tasks.json",
   "task": [
     {
       "config":"0 * * * * ? https://raw.githubusercontent.com/fmz200/wool_scripts/main/Scripts/TestFlight/AutoMonitorTF.js, tag=监控TestFlight位置, img-url=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/TestFlight_01.png, enabled=true",
