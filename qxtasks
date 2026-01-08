@@ -1,0 +1,23 @@
+{
+  "name": "Links'Tasks",
+  "description": "自用的定时任务，收集于网络，如有侵权可联系删除",
+  "raw": "https://raw.githubusercontent.com/fmz200/wool_scripts/refs/heads/main/QuantumultX/tasks/fmz200_tasks.json",
+  "task": [
+    "0 * * * * ? https://raw.githubusercontent.com/fmz200/wool_scripts/main/Scripts/TestFlight/AutoMonitorTF.js, tag=监控TestFlight位置, img-url=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/TestFlight_01.png, enabled=true",
+    "0 0/3 * * * ? https://raw.githubusercontent.com/fmz200/wool_scripts/main/Scripts/TestFlight/AutoJoinTF.js, tag=自动加入TestFlight, img-url=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/TestFlight_01.png, enabled=true",
+    "0 7,11,17 * * * https://gist.githubusercontent.com/Sliverkiss/33800a98dcd029ba09f8b6fc6f0f5162/raw/aliyun.js, tag=阿里云盘签到, img-url=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AliYunDrive.png, enabled=true",
+    "0 0 1 1 * https://gist.githubusercontent.com/Sliverkiss/7773f83eb14a98c8e24a41f883fca591/raw/michelinV2.js, tag=米其林, enabled=true",
+    "12 19 * * * https://gist.githubusercontent.com/Sliverkiss/9b83fb700558a95e7400a4f719a4892b/raw/zgrbV2.js, tag=中国人保, enabled=true",
+    "1 7,10 * * * https://gist.githubusercontent.com/Sliverkiss/d744c74d780f47cd85f6980ca5014170/raw/fyhs.js, tag=飞蚂蚁回收, enabled=true",
+    "0 0,8,16 * * * https://gist.githubusercontent.com/Sliverkiss/615bbd265bc0eab8ce5fb5f32af10016/raw/zmhyV2.js, tag=中免会员, enabled=true",
+    "8 8 * 12 * https://raw.githubusercontent.com/Sliverkiss/GoodNight/master/Script/qlSync.js, tag=青龙同步, enabled=true",
+    "51 8 * * * https://raw.githubusercontent.com/leiyiyan/resource/main/script/lhtj/lhtj.js, tag=龙湖天街签到, img-url=https://raw.githubusercontent.com/leiyiyan/resource/main/icons/lhtj.png, enabled=true",
+    "13 9 * * * https://gist.githubusercontent.com/Sliverkiss/a7eaa97cfaa6f4338471f450d9d08dbd/raw/t3dc.js, tag=T3签到, enabled=true",
+    "0 11 * * * https://raw.githubusercontent.com/MCdasheng/QuantumultX/main/Scripts/myScripts/ty.js, tag=天翼云盘签到, img-url=https://raw.githubusercontent.com/chxm1023/Script_X/main/icon/tianyiyunpan.png, enabled=true",
+    "16 11 * * * https://gist.githubusercontent.com/Sliverkiss/9d906d2f087cfe6a59584d313d1e4687/raw/coofans.js, tag=酷动商城, enabled=true",
+    "0 11 * * * https://some-scripts.pages.dev/Lbdq.js, tag=老板电器, enabled=true",
+    "16 9 * * * https://gist.githubusercontent.com/Sliverkiss/fcfab421bbe63d10948f48a7baa5a6ea/raw/fxsh.js, tag=粉象生活, img-url=https://raw.githubusercontent.com/czy13724/LeviIcons/main/leviicons/fxsh.png, enabled=true",
+    "30 8,9 * * * https://gist.githubusercontent.com/Sliverkiss/250a02315f0a2c99f42da3b3573375c8/raw/xcbwc.js, tag=小蚕霸王餐, img-url=https://raw.githubusercontent.com/sliverkiss/QuantumultX/main/icon/xcbwc.png, enabled=false",
+    "0 8 * * * https://raw.githubusercontent.com/fmz200/wool_scripts/main/QuantumultX/scripts/oil_price.js, tag=今日油价, img-url=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/oil.png, enabled=true"
+  ]
+}
