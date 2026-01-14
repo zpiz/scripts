@@ -7,7 +7,9 @@
 2024.07.03 更新内容：
 - 将请求头转换为小写，尝试兼容loon的h2
 
-重写：
+Quantumult X 修正版：
+- 移除 alpn: h2 限制，恢复 HTTP/1.1 兼容性
+- 恢复 Header 首字母大写标准格式
 - 登录网站后点击个人名称，查看个人名片信息。
 - 可在boxjs设置是否领取随机鸡腿，默认固定鸡腿。考虑到严格的审核机制，脚本仅有签到功能。
 
@@ -74,7 +76,8 @@ class UserInfo {
         this.ckStatus = true;
         //请求封装
         this.baseUrl = `https://www.nodeseek.com`;
-        // QuanX 修正：Header 首字母大写，添加 UA，移除小写 header 限制
+        
+        // QX 修正：恢复 Header 标准大写格式，移除小写限制
         this.headers = {
             'Connection': 'keep-alive',
             'Accept-Language': 'zh-CN,zh-Hans;q=0.9',
@@ -120,7 +123,7 @@ class UserInfo {
                     'Sec-Fetch-Site': 'same-origin',
                     'User-Agent': this.headers['User-Agent']
                 },
-                // QuanX 修正：移除 alpn: "h2"
+                // QX 修正：移除 alpn: "h2"，使用标准 GET
                 type: "GET" 
             }
             let res = await this.fetch(opts);
@@ -136,7 +139,6 @@ class UserInfo {
             const opts = {
                 url: "/api/attendance",
                 params: { "random": isDefault },
-                // QuanX 修正：移除 alpn: "h2"
                 headers: {
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Sec-Fetch-Mode': 'cors',
@@ -150,7 +152,8 @@ class UserInfo {
                     'Sec-Fetch-Site': 'same-origin',
                     'User-Agent': this.headers['User-Agent']
                 },
-                type: "POST" // QuanX 修正：使用大写 POST
+                // QX 修正：移除 alpn: "h2"，使用标准 POST
+                type: "POST" 
             }
             let res = await this.fetch(opts);
             $.log(`[${this.userName || this.index}][INFO]${res?.message}\n`);
