@@ -4,4 +4,4 @@ http-response-jq ^https:\/\/m\.mcloud\.139\.com\/ycloud\/mcloudday\/gift\/list '
 
 
 [MITM]
-hostname = m.mcloud.139.com
+hostname = %APPEND% m.mcloud.139.com
