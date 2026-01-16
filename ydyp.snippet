@@ -1,0 +1,5 @@
+#!name=移动云盘去去遮盖
+#!desc=来自大佬
+^https:\/\/m\.mcloud\.139\.com\/ycloud\/mcloudday\/gift\/list url jsonjq-response-body '.result.nationalPrizeList[]?.maskLayer = null | .result.provPrizeList[]?.maskLayer = null'
+
+hostname = %APPEND% m.mcloud.139.com
