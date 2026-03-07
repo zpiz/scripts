@@ -15,7 +15,7 @@ function getCookie() {
             const bearerToken = authHeader.match(/Bearer\s+(\S+)/i)?.[1];
             if (bearerToken) {
                 $.setdata(bearerToken, ckName); // 保存 token 到变量
-                const formatted = `,dlm set ${bearerToken}`;
+                const formatted = `/dlm set ${bearerToken}`;
                 $.msg($.name, "Token 获取成功 ✅", formatted);
             } else {
                 $.msg($.name, "⚠️ 获取失败", "Authorization 格式错误");
