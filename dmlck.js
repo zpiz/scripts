@@ -1,7 +1,7 @@
 // Quantumult X 脚本：达美乐ck自动获取
 /*
 [rewrite_local]
-^https:\/\/game\.dominos\.com\.cn\/[^\/]+\/v2\/getUser\?openid=undefined url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/dlmck.js
+^https:\/\/game\.dominos\.com\.cn\/[^\/]+\/v2\/getUser\?openid=undefined url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/dmlck.js
 [MITM]
 hostname = game.dominos.com.cn
 */
