@@ -6,7 +6,7 @@ scriptings:
   - generic:
       name: "multi-exchange-rate"
       # 这里需要替换为你实际存放 js 脚本的远程 URL 或本地路径
-      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/huilv.js" 
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/exchange-rate.js" 
       timeout: 10
 
 widgets:
