@@ -1,0 +1,14 @@
+name: "多国汇率小组件"
+description: "在桌面小组件中实时展示美元、欧元、英镑、日元(100)、港币对人民币的汇率"
+author: "Gemini"
+
+scriptings:
+  - generic:
+      name: "multi-exchange-rate"
+      # 这里需要替换为你实际存放 js 脚本的远程 URL 或本地路径
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/huilv.js" 
+      timeout: 10
+
+widgets:
+  # 在模块中直接声明小组件，启用模块后自动生效
+  - name: "multi-exchange-rate"
