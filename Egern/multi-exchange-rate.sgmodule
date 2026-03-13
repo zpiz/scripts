@@ -1,6 +1,6 @@
 name: "多国汇率小组件"
 description: "在桌面小组件中实时展示美元、欧元、英镑、日元(100)、港币对人民币的汇率"
-author: "Gemini"
+author: "zpiz"
 
 scriptings:
   - generic:
