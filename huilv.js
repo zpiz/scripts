@@ -15,14 +15,67 @@ export default async function(ctx) {
       USD: cny.toFixed(2),
       EUR: (cny / data.rates.EUR).toFixed(2),
       GBP: (cny / data.rates.GBP).toFixed(2),
-      JPY: ((cny / data.rates.JPY) * 100).toFixed(2), // 日元通常展示 100 JPY = ? CNY
+      JPY: ((cny / data.rates.JPY) * 100).toFixed(2),
       HKD: (cny / data.rates.HKD).toFixed(2)
     };
   } catch (e) {
     isError = true;
   }
 
-  // 动态构建货币列表行
+  const family = ctx.widgetFamily || "systemSmall";
+
+  // ====== 1. 锁屏小组件：内联文字 (accessoryInline) ======
+  if (family === "accessoryInline") {
+    return {
+      type: "widget",
+      children: [
+        { 
+          type: "text", 
+          text: isError ? "汇率获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` 
+        }
+      ]
+    };
+  }
+
+  // ====== 2. 锁屏小组件：矩形面板 (accessoryRectangular) ======
+  if (family === "accessoryRectangular") {
+    if (isError) {
+      return { type: "widget", children: [{ type: "text", text: "网络请求失败" }] };
+    }
+    return {
+      type: "widget",
+      gap: 4, // 增加锁屏矩形面板的行间距
+      children: [
+        { type: "text", text: `🇺🇸 USD: ${rates.USD}`, font: { size: "headline", weight: "bold" } },
+        { type: "text", text: `🇪🇺 EUR: ${rates.EUR}`, font: { size: "headline", weight: "bold" } },
+        { type: "text", text: `🇯🇵 JPY: ${rates.JPY}`, font: { size: "headline", weight: "bold" } }
+      ]
+    };
+  }
+
+  // ====== 3. 锁屏小组件：圆形表盘 (accessoryCircular) ======
+  if (family === "accessoryCircular") {
+    if (isError) {
+      return { type: "widget", children: [{ type: "text", text: "Error" }] };
+    }
+    return {
+      type: "widget",
+      children: [
+        {
+          type: "stack",
+          direction: "column",
+          alignItems: "center",
+          gap: 2,
+          children: [
+            { type: "image", src: "sf-symbol:dollarsign.circle", width: 18, height: 18 },
+            { type: "text", text: rates.USD, font: { size: "caption1", weight: "bold" } }
+          ]
+        }
+      ]
+    };
+  }
+
+  // ====== 4. 主屏幕小组件 ======
   const currencyRows = [];
   if (!isError) {
     const list = [
@@ -33,40 +86,37 @@ export default async function(ctx) {
       { name: "🇭🇰 HKD", rate: rates.HKD }
     ];
 
-    list.forEach(item => {
+    list.forEach((item, index) => {
       currencyRows.push({
         type: "stack",
         direction: "row",
         alignItems: "center",
         children: [
-          // flex: 1 会自动占满左侧剩余空间，实现两端对齐
           { type: "text", text: item.name, font: { size: "subheadline", weight: "medium" }, textColor: "#FFFFFF", flex: 1 },
           { type: "text", text: item.rate, font: { size: "subheadline", weight: "bold" }, textColor: "#34C759" }
         ]
       });
+      
+      // 在除最后一行外的每行之间插入固定长度的 spacer 来增加间距
+      if (index < list.length - 1) {
+        currencyRows.push({ type: "spacer", length: 12 }); // <--- 这里调整了行间距，数值越大间距越宽
+      }
     });
   } else {
-    currencyRows.push({
-      type: "text",
-      text: "网络请求失败，请检查连接",
-      textColor: "#FF3B30",
-      font: { size: "subheadline" }
-    });
+    currencyRows.push({ type: "text", text: "网络请求失败", textColor: "#FF3B30", font: { size: "subheadline" } });
   }
 
-  // 返回最终的小组件 DSL 结构
   return {
     type: "widget",
     backgroundGradient: {
       type: "linear",
-      colors: ["#1A1A2E", "#16213E"], // 深色护眼背景
+      colors: ["#1A1A2E", "#16213E"],
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
     padding: 16,
-    gap: 6, // 控制每一行之间的间距
+    gap: 0, // 外层 gap 设为 0，完全由内部的 spacer 控制间距
     children: [
-      // 头部标题区
       {
         type: "stack",
         direction: "row",
@@ -77,14 +127,12 @@ export default async function(ctx) {
           { type: "text", text: "汇率看板 (CNY)", font: { size: "headline", weight: "bold" }, textColor: "#FFFFFF" }
         ]
       },
-      { type: "spacer", length: 4 }, // 标题和列表的间距
+      { type: "spacer", length: 16 }, // 标题和列表的间距加大
       
-      // 展开注入之前生成的汇率列表
       ...currencyRows,
       
-      { type: "spacer" }, // 将底部时间推到最下边
+      { type: "spacer" }, // 弹性 spacer 将底部时间推到底部
       
-      // 底部更新时间区
       {
         type: "stack",
         direction: "row",
