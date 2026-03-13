@@ -23,7 +23,7 @@ export default async function(ctx) {
 
   const family = ctx.widgetFamily || "systemSmall";
 
-  // ====== 锁屏小组件逻辑保持不变 ======
+  // ====== 锁屏小组件逻辑 ======
   if (family === "accessoryInline") {
     return { type: "widget", children: [{ type: "text", text: isError ? "获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` }] };
   }
@@ -54,17 +54,15 @@ export default async function(ctx) {
     };
   }
 
-  // ====== 主屏幕小组件 (动态排版核心逻辑) ======
+  // ====== 主屏幕小组件 ======
   const isSmall = family === "systemSmall";
   const isLarge = family === "systemLarge" || family === "systemExtraLarge";
 
-  // 1. 根据尺寸动态分配间距和内边距
-  // 小号尺寸大幅压缩行距避免溢出；中号保持舒适；大号尽量舒展
+  // 根据尺寸动态分配间距和内边距
   const rowSpacing = isLarge ? 24 : (isSmall ? 4 : 12);
   const titleSpacing = isLarge ? 28 : (isSmall ? 8 : 16);
   const paddingVal = isLarge ? 24 : 16;
   
-  // 2. 动态调整标题长度避免在小号组件中被截断
   const titleText = isSmall ? "汇率 (CNY)" : "汇率看板 (CNY)";
 
   const currencyRows = [];
@@ -83,12 +81,10 @@ export default async function(ctx) {
         direction: "row",
         alignItems: "center",
         children: [
-          // 减小小号尺寸的字体大小，确保即使是稍微长一点的数字也能完整显示
           { type: "text", text: item.name, font: { size: isSmall ? "footnote" : "subheadline", weight: "medium" }, textColor: "#FFFFFF", flex: 1 },
           { type: "text", text: item.rate, font: { size: isSmall ? "footnote" : "subheadline", weight: "bold" }, textColor: "#34C759" }
         ]
       });
-      // 插入动态高度的间距
       if (index < list.length - 1) {
         currencyRows.push({ type: "spacer", length: rowSpacing });
       }
@@ -97,7 +93,7 @@ export default async function(ctx) {
     currencyRows.push({ type: "text", text: "网络请求失败", textColor: "#FF3B30", font: { size: "subheadline" } });
   }
 
-  // 构建最终配置
+  // 构建最终配置，去掉了单独的大号组件背景图片覆盖逻辑
   const widgetConfig = {
     type: "widget",
     backgroundGradient: {
@@ -121,7 +117,7 @@ export default async function(ctx) {
       },
       { type: "spacer", length: titleSpacing },
       ...currencyRows,
-      { type: "spacer" }, // 这个会自动吃掉剩余的弹性空间，将下面的时间推到底部
+      { type: "spacer" }, 
       {
         type: "stack",
         direction: "row",
@@ -134,12 +130,6 @@ export default async function(ctx) {
       }
     ]
   };
-
-  if (isLarge) {
-    // 你的背景图 Base64 预留位
-    const base64Image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-    widgetConfig.backgroundImage = base64Image;
-  }
 
   return widgetConfig;
 }
