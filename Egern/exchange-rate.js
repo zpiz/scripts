@@ -23,20 +23,14 @@ export default async function(ctx) {
 
   const family = ctx.widgetFamily || "systemSmall";
 
-  // ====== 1. 锁屏小组件：内联文字 (accessoryInline) ======
+  // ====== 锁屏小组件逻辑保持不变 ======
   if (family === "accessoryInline") {
-    return {
-      type: "widget",
-      children: [{ type: "text", text: isError ? "汇率获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` }]
-    };
+    return { type: "widget", children: [{ type: "text", text: isError ? "获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` }] };
   }
-
-  // ====== 2. 锁屏小组件：矩形面板 (accessoryRectangular) ======
   if (family === "accessoryRectangular") {
     if (isError) return { type: "widget", children: [{ type: "text", text: "网络请求失败" }] };
     return {
-      type: "widget",
-      gap: 4,
+      type: "widget", gap: 4,
       children: [
         { type: "text", text: `🇺🇸 USD: ${rates.USD}`, font: { size: "headline", weight: "bold" } },
         { type: "text", text: `🇪🇺 EUR: ${rates.EUR}`, font: { size: "headline", weight: "bold" } },
@@ -44,18 +38,13 @@ export default async function(ctx) {
       ]
     };
   }
-
-  // ====== 3. 锁屏小组件：圆形表盘 (accessoryCircular) ======
   if (family === "accessoryCircular") {
     if (isError) return { type: "widget", children: [{ type: "text", text: "Error" }] };
     return {
       type: "widget",
       children: [
         {
-          type: "stack",
-          direction: "column",
-          alignItems: "center",
-          gap: 2,
+          type: "stack", direction: "column", alignItems: "center", gap: 2,
           children: [
             { type: "image", src: "sf-symbol:dollarsign.circle", width: 18, height: 18 },
             { type: "text", text: rates.USD, font: { size: "caption1", weight: "bold" } }
@@ -65,11 +54,18 @@ export default async function(ctx) {
     };
   }
 
-  // ====== 4. 主屏幕小组件 (常规与大号) ======
+  // ====== 主屏幕小组件 (动态排版核心逻辑) ======
+  const isSmall = family === "systemSmall";
+  const isLarge = family === "systemLarge" || family === "systemExtraLarge";
+
+  // 1. 根据尺寸动态分配间距和内边距
+  // 小号尺寸大幅压缩行距避免溢出；中号保持舒适；大号尽量舒展
+  const rowSpacing = isLarge ? 24 : (isSmall ? 4 : 12);
+  const titleSpacing = isLarge ? 28 : (isSmall ? 8 : 16);
+  const paddingVal = isLarge ? 24 : 16;
   
-  // 针对大号组件 (systemLarge) 动态调整更宽的行距
-  const rowSpacing = (family === "systemLarge" || family === "systemExtraLarge") ? 24 : 12;
-  const titleSpacing = (family === "systemLarge" || family === "systemExtraLarge") ? 28 : 16;
+  // 2. 动态调整标题长度避免在小号组件中被截断
+  const titleText = isSmall ? "汇率 (CNY)" : "汇率看板 (CNY)";
 
   const currencyRows = [];
   if (!isError) {
@@ -87,10 +83,12 @@ export default async function(ctx) {
         direction: "row",
         alignItems: "center",
         children: [
-          { type: "text", text: item.name, font: { size: "subheadline", weight: "medium" }, textColor: "#FFFFFF", flex: 1 },
-          { type: "text", text: item.rate, font: { size: "subheadline", weight: "bold" }, textColor: "#34C759" }
+          // 减小小号尺寸的字体大小，确保即使是稍微长一点的数字也能完整显示
+          { type: "text", text: item.name, font: { size: isSmall ? "footnote" : "subheadline", weight: "medium" }, textColor: "#FFFFFF", flex: 1 },
+          { type: "text", text: item.rate, font: { size: isSmall ? "footnote" : "subheadline", weight: "bold" }, textColor: "#34C759" }
         ]
       });
+      // 插入动态高度的间距
       if (index < list.length - 1) {
         currencyRows.push({ type: "spacer", length: rowSpacing });
       }
@@ -99,7 +97,7 @@ export default async function(ctx) {
     currencyRows.push({ type: "text", text: "网络请求失败", textColor: "#FF3B30", font: { size: "subheadline" } });
   }
 
-  // 基础 Widget 配置
+  // 构建最终配置
   const widgetConfig = {
     type: "widget",
     backgroundGradient: {
@@ -108,7 +106,7 @@ export default async function(ctx) {
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
-    padding: (family === "systemLarge" || family === "systemExtraLarge") ? 24 : 16,
+    padding: paddingVal,
     gap: 0,
     children: [
       {
@@ -118,12 +116,12 @@ export default async function(ctx) {
         gap: 6,
         children: [
           { type: "image", src: "sf-symbol:banknote.fill", color: "#FF9500", width: 16, height: 16 },
-          { type: "text", text: "汇率看板 (CNY)", font: { size: "headline", weight: "bold" }, textColor: "#FFFFFF" }
+          { type: "text", text: titleText, font: { size: "headline", weight: "bold" }, textColor: "#FFFFFF" }
         ]
       },
       { type: "spacer", length: titleSpacing },
       ...currencyRows,
-      { type: "spacer" },
+      { type: "spacer" }, // 这个会自动吃掉剩余的弹性空间，将下面的时间推到底部
       {
         type: "stack",
         direction: "row",
@@ -137,9 +135,8 @@ export default async function(ctx) {
     ]
   };
 
-  // 如果是大尺寸，覆盖 backgroundGradient，注入背景图片
-  if (family === "systemLarge" || family === "systemExtraLarge") {
-    // ⚠️ 此处目前为一个透明占位图，你需要将其替换为你自己图片的 Base64
+  if (isLarge) {
+    // 你的背景图 Base64 预留位
     const base64Image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
     widgetConfig.backgroundImage = base64Image;
   }
