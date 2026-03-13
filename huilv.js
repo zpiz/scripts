@@ -1,5 +1,5 @@
 export default async function(ctx) {
-  // 请求基础汇率数据（以美元为基准）
+  // 请求基础汇率数据
   const apiUrl = "https://api.exchangerate-api.com/v4/latest/USD";
   
   let rates = {};
@@ -10,7 +10,6 @@ export default async function(ctx) {
     const data = await resp.json();
     const cny = data.rates.CNY;
     
-    // 计算各货币对人民币的交叉汇率
     rates = {
       USD: cny.toFixed(2),
       EUR: (cny / data.rates.EUR).toFixed(2),
@@ -28,23 +27,16 @@ export default async function(ctx) {
   if (family === "accessoryInline") {
     return {
       type: "widget",
-      children: [
-        { 
-          type: "text", 
-          text: isError ? "汇率获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` 
-        }
-      ]
+      children: [{ type: "text", text: isError ? "汇率获取失败" : `🇺🇸${rates.USD} 🇪🇺${rates.EUR} 🇯🇵${rates.JPY}` }]
     };
   }
 
   // ====== 2. 锁屏小组件：矩形面板 (accessoryRectangular) ======
   if (family === "accessoryRectangular") {
-    if (isError) {
-      return { type: "widget", children: [{ type: "text", text: "网络请求失败" }] };
-    }
+    if (isError) return { type: "widget", children: [{ type: "text", text: "网络请求失败" }] };
     return {
       type: "widget",
-      gap: 4, // 增加锁屏矩形面板的行间距
+      gap: 4,
       children: [
         { type: "text", text: `🇺🇸 USD: ${rates.USD}`, font: { size: "headline", weight: "bold" } },
         { type: "text", text: `🇪🇺 EUR: ${rates.EUR}`, font: { size: "headline", weight: "bold" } },
@@ -55,9 +47,7 @@ export default async function(ctx) {
 
   // ====== 3. 锁屏小组件：圆形表盘 (accessoryCircular) ======
   if (family === "accessoryCircular") {
-    if (isError) {
-      return { type: "widget", children: [{ type: "text", text: "Error" }] };
-    }
+    if (isError) return { type: "widget", children: [{ type: "text", text: "Error" }] };
     return {
       type: "widget",
       children: [
@@ -75,7 +65,12 @@ export default async function(ctx) {
     };
   }
 
-  // ====== 4. 主屏幕小组件 ======
+  // ====== 4. 主屏幕小组件 (常规与大号) ======
+  
+  // 针对大号组件 (systemLarge) 动态调整更宽的行距
+  const rowSpacing = (family === "systemLarge" || family === "systemExtraLarge") ? 24 : 12;
+  const titleSpacing = (family === "systemLarge" || family === "systemExtraLarge") ? 28 : 16;
+
   const currencyRows = [];
   if (!isError) {
     const list = [
@@ -96,17 +91,16 @@ export default async function(ctx) {
           { type: "text", text: item.rate, font: { size: "subheadline", weight: "bold" }, textColor: "#34C759" }
         ]
       });
-      
-      // 在除最后一行外的每行之间插入固定长度的 spacer 来增加间距
       if (index < list.length - 1) {
-        currencyRows.push({ type: "spacer", length: 12 }); // <--- 这里调整了行间距，数值越大间距越宽
+        currencyRows.push({ type: "spacer", length: rowSpacing });
       }
     });
   } else {
     currencyRows.push({ type: "text", text: "网络请求失败", textColor: "#FF3B30", font: { size: "subheadline" } });
   }
 
-  return {
+  // 基础 Widget 配置
+  const widgetConfig = {
     type: "widget",
     backgroundGradient: {
       type: "linear",
@@ -114,8 +108,8 @@ export default async function(ctx) {
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
-    padding: 16,
-    gap: 0, // 外层 gap 设为 0，完全由内部的 spacer 控制间距
+    padding: (family === "systemLarge" || family === "systemExtraLarge") ? 24 : 16,
+    gap: 0,
     children: [
       {
         type: "stack",
@@ -127,12 +121,9 @@ export default async function(ctx) {
           { type: "text", text: "汇率看板 (CNY)", font: { size: "headline", weight: "bold" }, textColor: "#FFFFFF" }
         ]
       },
-      { type: "spacer", length: 16 }, // 标题和列表的间距加大
-      
+      { type: "spacer", length: titleSpacing },
       ...currencyRows,
-      
-      { type: "spacer" }, // 弹性 spacer 将底部时间推到底部
-      
+      { type: "spacer" },
       {
         type: "stack",
         direction: "row",
@@ -145,4 +136,13 @@ export default async function(ctx) {
       }
     ]
   };
+
+  // 如果是大尺寸，覆盖 backgroundGradient，注入背景图片
+  if (family === "systemLarge" || family === "systemExtraLarge") {
+    // ⚠️ 此处目前为一个透明占位图，你需要将其替换为你自己图片的 Base64
+    const base64Image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    widgetConfig.backgroundImage = base64Image;
+  }
+
+  return widgetConfig;
 }
