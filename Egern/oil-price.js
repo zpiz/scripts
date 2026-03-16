@@ -4,7 +4,7 @@ export default async function(ctx) {
   
   // 引入主备双路 API 机制，提升可用性
   const primaryUrl = `http://m.qiyoujiage.com/${encodeURIComponent(province)}.shtml`;
-  #const primaryUrl = `https://tenapi.cn/v2/oil?province=${encodeURIComponent(province)}`;
+  //const primaryUrl = `https://tenapi.cn/v2/oil?province=${encodeURIComponent(province)}`;
   const backupUrl = `https://api.vvhan.com/api/oil?prov=${encodeURIComponent(province)}`;
   
   let oilData = {};
