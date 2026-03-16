@@ -1,37 +1,61 @@
 export default async function(ctx) {
-  // 从 Egern 配置中读取环境变量，默认 "河北"
   const province = ctx.env.PROVINCE || "河北";
-  const cacheKey = `oil_price_cache_${province}`; // 针对不同省份独立缓存
+  const cacheKey = `oil_price_cache_${province}`;
   
-  const apiUrl = `https://api.vvhan.com/api/oil?prov=${encodeURIComponent(province)}`;
+  // 引入主备双路 API 机制，提升可用性
+  const primaryUrl = `https://tenapi.cn/v2/oil?province=${encodeURIComponent(province)}`;
+  const backupUrl = `https://api.vvhan.com/api/oil?prov=${encodeURIComponent(province)}`;
   
   let oilData = {};
-  let updateTime = new Date().toISOString();
+  let updateTime = new Date().toISOString().split('T')[0];
   let isError = false;
-  let isCached = false; // 标记当前是否使用的是缓存数据
+  let isCached = false;
+
+  // 强兼容的数据解析器：抹平不同 API 返回字段的差异
+  const parseData = (json) => {
+    if (!json) return null;
+    let d = json.data;
+    if (Array.isArray(d)) d = d[0];
+    if (!d) return null;
+    
+    return {
+      p92: d.p92 || d["92"] || d["92h"] || "--",
+      p95: d.p95 || d["95"] || d["95h"] || "--",
+      p98: d.p98 || d["98"] || d["98h"] || "--",
+      p0:  d.p0  || d["0"]  || d["0h"]  || "--",
+      time: d.time || d.updateTime || d.date || updateTime
+    };
+  };
 
   try {
-    const resp = await ctx.http.get(apiUrl, { timeout: 5000 });
-    const resJson = await resp.json();
-    
-    if (resJson.success && resJson.data) {
-      oilData = resJson.data;
-      if (oilData.time) updateTime = oilData.time; 
-      
-      // 网络请求成功，将最新数据以 JSON 格式持久化保存到 Egern 的本地存储中
+    let resJson = null;
+    try {
+      // 1. 优先探测主节点
+      const resp = await ctx.http.get(primaryUrl, { timeout: 4000 });
+      resJson = await resp.json();
+    } catch (err) {
+      // 2. 主节点超时或 502，无缝切换到备用节点
+      const resp2 = await ctx.http.get(backupUrl, { timeout: 4000 });
+      resJson = await resp2.json();
+    }
+
+    const parsed = parseData(resJson);
+    if (parsed && parsed.p92 !== "--") {
+      oilData = parsed;
+      updateTime = parsed.time;
+      // 请求成功，覆盖本地缓存
       ctx.storage.setJSON(cacheKey, { data: oilData, time: updateTime });
     } else {
-      throw new Error("API 返回数据异常");
+      throw new Error("API 数据结构异常");
     }
   } catch (e) {
-    // 网络请求失败或超时，触发缓存降级机制
+    // 3. 主备双双阵亡，触发本地离线缓存降级
     const cachedData = ctx.storage.getJSON(cacheKey);
     if (cachedData && cachedData.data) {
       oilData = cachedData.data;
       updateTime = cachedData.time;
-      isCached = true; // 标记为离线状态
+      isCached = true;
     } else {
-      // 本地也没有缓存数据，宣告彻底失败
       isError = true;
     }
   }
@@ -42,7 +66,7 @@ export default async function(ctx) {
   const colorBgStart = { light: "#FFFFFF", dark: "#1A1A2E" };
   const colorBgEnd = { light: "#F2F2F7", dark: "#16213E" };
   const colorHighlight = "#FF9500"; 
-  const colorCacheWarning = "#FF9500"; // 缓存状态下的警告色
+  const colorCacheWarning = "#FF9500";
 
   // 组装油价展示数据
   const listData = [
@@ -105,9 +129,7 @@ export default async function(ctx) {
 
   const buildColItem = (item, isSmallFont) => {
     return {
-      type: "stack",
-      direction: "row",
-      alignItems: "center",
+      type: "stack", direction: "row", alignItems: "center",
       children: [
         { 
           type: "stack", direction: "row", alignItems: "center", gap: 6, flex: 1,
@@ -152,7 +174,6 @@ export default async function(ctx) {
     contentChildren.push({ type: "text", text: "无网络且无本地缓存数据", textColor: "#FF3B30", font: { size: "subheadline" } });
   }
 
-  // 动态处理底部的更新时间文案
   const timeText = isCached ? `${updateTime} (离线缓存)` : updateTime;
   const timeColor = isCached ? colorCacheWarning : colorSubText;
 
@@ -168,10 +189,7 @@ export default async function(ctx) {
     gap: 0,
     children: [
       {
-        type: "stack",
-        direction: "row",
-        alignItems: "center",
-        gap: 6,
+        type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
           { type: "image", src: "sf-symbol:car.fill", color: colorHighlight, width: 16, height: 16 },
           { type: "text", text: titleText, font: { size: "headline", weight: "bold" }, textColor: colorMainText }
@@ -181,10 +199,7 @@ export default async function(ctx) {
       ...contentChildren,
       { type: "spacer" }, 
       {
-        type: "stack",
-        direction: "row",
-        alignItems: "center",
-        gap: 4,
+        type: "stack", direction: "row", alignItems: "center", gap: 4,
         children: [
           { type: "text", text: "发改委调价", font: { size: "caption2" }, textColor: colorSubText },
           { type: "text", text: timeText, font: { size: "caption2" }, textColor: timeColor }
