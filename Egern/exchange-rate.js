@@ -1,37 +1,33 @@
 export default async function(ctx) {
-  // 1. 动态计算今天和昨天的日期 (用于获取趋势对比)
-  const today = new Date();
-  const yesterday = new Date(today.getTime() - 86400000);
-  
-  const yyyy = yesterday.getFullYear();
-  const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
-  const dd = String(yesterday.getDate()).padStart(2, '0');
-  const yesterdayStr = `${yyyy}-${mm}-${dd}`;
-
-  // 使用支持历史数据查询的免费开源 API
   const currentUrl = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json";
-  const yesterdayUrl = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${yesterdayStr}/v1/currencies/usd.json`;
 
   let currentData = null;
   let yesterdayData = null;
   let isError = false;
 
   try {
-    // 并发请求今天和昨天的汇率数据
-    const [respCurr, respYest] = await Promise.all([
-      ctx.http.get(currentUrl, { timeout: 5000 }).catch(() => null),
-      ctx.http.get(yesterdayUrl, { timeout: 5000 }).catch(() => null)
-    ]);
+    const respCurr = await ctx.http.get(currentUrl, { timeout: 5000 });
+    currentData = await respCurr.json();
     
-    if (respCurr) currentData = await respCurr.json();
-    if (respYest) yesterdayData = await respYest.json();
-    
-    if (!currentData || !currentData.usd) isError = true;
+    if (currentData && currentData.date) {
+      const apiDate = new Date(currentData.date);
+      const prevDate = new Date(apiDate.getTime() - 86400000);
+      
+      const yyyy = prevDate.getFullYear();
+      const mm = String(prevDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(prevDate.getDate()).padStart(2, '0');
+      const prevDateStr = `${yyyy}-${mm}-${dd}`;
+      
+      const prevUrl = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${prevDateStr}/v1/currencies/usd.json`;
+      const respPrev = await ctx.http.get(prevUrl, { timeout: 5000 });
+      yesterdayData = await respPrev.json();
+    } else {
+      isError = true;
+    }
   } catch (e) {
     isError = true;
   }
 
-  // 计算指定货币对人民币的交叉汇率
   const getRate = (data, id) => {
     if (!data || !data.usd || !data.usd.cny || !data.usd[id]) return null;
     const cny = data.usd.cny;
@@ -44,8 +40,15 @@ export default async function(ctx) {
   const isMedium = family === "systemMedium";
   const isLarge = family === "systemLarge" || family === "systemExtraLarge";
 
-  // 2. 根据组件尺寸动态分配要显示的货币种类
-  // 小尺寸显示 5 种，中/大尺寸显示 8 种以保证左右对称 (4对4)
+  // ====== 定义自适应颜色 (白天/夜间模式) ======
+  const colorMainText = { light: "#000000", dark: "#FFFFFF" };
+  const colorSubText = { light: "#8E8E93", dark: "#888888" };
+  const colorBgStart = { light: "#FFFFFF", dark: "#1A1A2E" };
+  const colorBgEnd = { light: "#F2F2F7", dark: "#16213E" };
+  const colorTrendFlat = { light: "#8E8E93", dark: "#888888" };
+  const colorTrendUp = "#FF3B30";   // 系统红
+  const colorTrendDown = "#34C759"; // 系统绿
+
   const currencyConfigs = isSmall 
     ? [
         { id: "usd", name: "🇺🇸 USD" }, { id: "eur", name: "🇪🇺 EUR" }, 
@@ -59,24 +62,23 @@ export default async function(ctx) {
         { id: "cad", name: "🇨🇦 CAD" }, { id: "sgd", name: "🇸🇬 SGD" }
       ];
 
-  // 3. 组装包含趋势的数据列表
   const listData = currencyConfigs.map(c => {
     const curr = getRate(currentData, c.id);
     const yest = getRate(yesterdayData, c.id);
     
-    let symbol = "";
-    let color = "#FFFFFF"; // 默认白色
+    let symbol = "-";
+    let color = colorTrendFlat; 
     
     if (curr && yest) {
-      if (curr > yest) {
+      const currVal = Number(curr.toFixed(4));
+      const yestVal = Number(yest.toFixed(4));
+
+      if (currVal > yestVal) {
         symbol = "↑";
-        color = "#FF3B30"; // 红色：代表汇率较昨天变大（若习惯国际市场绿涨，可与下面互换）
-      } else if (curr < yest) {
+        color = colorTrendUp;
+      } else if (currVal < yestVal) {
         symbol = "↓";
-        color = "#34C759"; // 绿色：代表汇率较昨天变小
-      } else {
-        symbol = "-";
-        color = "#888888"; // 灰色：持平
+        color = colorTrendDown;
       }
     }
 
@@ -98,7 +100,11 @@ export default async function(ctx) {
     return {
       type: "widget", gap: 4,
       children: listData.slice(0,3).map(d => ({
-        type: "text", text: `${d.name}: ${d.rate} ${d.trendSymbol}`, font: { size: "headline", weight: "bold" }, textColor: d.trendColor === "#FFFFFF" ? "#FFFFFF" : d.trendColor
+        // 锁屏组件大部分由系统接管颜色，但明确指定趋势颜色依然能起到点缀作用
+        type: "text", 
+        text: `${d.name}: ${d.rate} ${d.trendSymbol}`, 
+        font: { size: "headline", weight: "bold" }, 
+        textColor: d.trendSymbol === "-" ? undefined : d.trendColor
       }))
     };
   }
@@ -124,21 +130,20 @@ export default async function(ctx) {
   const paddingVal = isLarge ? 24 : 16;
   const titleText = isSmall ? "汇率 (CNY)" : "汇率看板 (CNY)";
 
-  // 构建每一行货币UI的通用函数
   const buildColItem = (item, isSmallFont) => {
     return {
       type: "stack",
       direction: "row",
       alignItems: "center",
       children: [
-        { type: "text", text: item.name, font: { size: isSmallFont ? "footnote" : "subheadline", weight: "medium" }, textColor: "#FFFFFF", flex: 1 },
+        { type: "text", text: item.name, font: { size: isSmallFont ? "footnote" : "subheadline", weight: "medium" }, textColor: colorMainText, flex: 1 },
         { 
           type: "stack", 
           direction: "row", 
           alignItems: "center",
-          gap: 4, // 汇率数值和箭头之间的间距
+          gap: 4, 
           children: [
-            { type: "text", text: item.rate, font: { size: isSmallFont ? "footnote" : "subheadline", weight: "bold" }, textColor: "#FFFFFF" },
+            { type: "text", text: item.rate, font: { size: isSmallFont ? "footnote" : "subheadline", weight: "bold" }, textColor: colorMainText },
             { type: "text", text: item.trendSymbol, font: { size: isSmallFont ? "caption2" : "footnote", weight: "bold" }, textColor: item.trendColor }
           ]
         }
@@ -150,13 +155,11 @@ export default async function(ctx) {
 
   if (!isError) {
     if (isSmall) {
-      // 小尺寸：单列排版
       listData.forEach((item, index) => {
         contentChildren.push(buildColItem(item, true));
         if (index < listData.length - 1) contentChildren.push({ type: "spacer", length: rowSpacing });
       });
     } else {
-      // 中、大尺寸：左右双列对称排版 (各4种)
       const leftCol = [];
       const rightCol = [];
       const half = Math.ceil(listData.length / 2);
@@ -177,21 +180,21 @@ export default async function(ctx) {
         alignItems: "start",
         children: [
           { type: "stack", direction: "column", children: leftCol, flex: 1 },
-          { type: "spacer", length: 20 }, // 左右两列之间的列间距
+          { type: "spacer", length: 20 },
           { type: "stack", direction: "column", children: rightCol, flex: 1 }
         ]
       });
     }
   } else {
-    contentChildren.push({ type: "text", text: "网络或数据解析失败", textColor: "#FF3B30", font: { size: "subheadline" } });
+    contentChildren.push({ type: "text", text: "网络或数据解析失败", textColor: colorTrendUp, font: { size: "subheadline" } });
   }
 
-  // 最终的 Widget DSL
   return {
     type: "widget",
     backgroundGradient: {
       type: "linear",
-      colors: ["#1A1A2E", "#16213E"],
+      // 这里使用了支持深浅色切换的数组
+      colors: [colorBgStart, colorBgEnd],
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
@@ -205,7 +208,7 @@ export default async function(ctx) {
         gap: 6,
         children: [
           { type: "image", src: "sf-symbol:banknote.fill", color: "#FF9500", width: 16, height: 16 },
-          { type: "text", text: titleText, font: { size: "headline", weight: "bold" }, textColor: "#FFFFFF" }
+          { type: "text", text: titleText, font: { size: "headline", weight: "bold" }, textColor: colorMainText }
         ]
       },
       { type: "spacer", length: titleSpacing },
@@ -217,8 +220,8 @@ export default async function(ctx) {
         alignItems: "center",
         gap: 4,
         children: [
-          { type: "text", text: "更新于", font: { size: "caption2" }, textColor: "#888888" },
-          { type: "date", date: new Date().toISOString(), format: "time", font: { size: "caption2" }, textColor: "#888888" }
+          { type: "text", text: "更新于", font: { size: "caption2" }, textColor: colorSubText },
+          { type: "date", date: new Date().toISOString(), format: "time", font: { size: "caption2" }, textColor: colorSubText }
         ]
       }
     ]
