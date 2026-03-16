@@ -1,0 +1,16 @@
+name: "HomeLab 监控小组件"
+description: "实时监控家中 NAS 和 Mac mini 的在线状态与网络延迟"
+
+scriptings:
+  - generic:
+      name: "homelab-script"
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/homelab-monitor.js" 
+      timeout: 10
+
+widgets:
+  - name: "homelab-widget"
+    script_name: "homelab-script"
+    env:
+      # 替换为你实际的外网访问域名或 IP
+      NAS_URL: "https://nas.你的域名.com"
+      MAC_URL: "https://mac.你的域名.com:端口"
