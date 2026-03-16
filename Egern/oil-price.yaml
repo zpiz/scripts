@@ -1,0 +1,16 @@
+name: "今日油价小组件"
+description: "实时展示各省份最新油价，支持白天/夜间模式自动切换"
+
+scriptings:
+  - generic:
+      name: "oil-price-script"
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/oil-price.js" 
+      timeout: 10
+
+widgets:
+  - name: "oil-price-widget"
+    script_name: "oil-price-script"
+    env:
+      # 在这里修改省份名称，支持：北京、上海、广东、四川等
+      # 如果删除或注释掉这行，脚本将默认显示“河北”
+      PROVINCE: "河北"
