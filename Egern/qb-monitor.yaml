@@ -1,0 +1,23 @@
+name: "NAS 下载监控小组件"
+description: "实时显示 qBittorrent 的上下行速率、活动种子数与全局状态"
+author: "Gemini"
+
+compat_arguments_desc: "请填入 qBittorrent 的外网访问地址及登录凭证。"
+compat_arguments:
+  QB_URL: "https://qb.你的域名.com:8080"
+  QB_USER: "admin"
+  QB_PASS: "adminadmin"
+
+scriptings:
+  - generic:
+      name: "qb-monitor-script"
+      script_url: "https://你的服务器地址/qb-monitor.js"
+      timeout: 10
+
+widgets:
+  - name: "qb-monitor-widget"
+    script_name: "qb-monitor-script"
+    env:
+      QB_URL: "{{{QB_URL}}}"
+      QB_USER: "{{{QB_USER}}}"
+      QB_PASS: "{{{QB_PASS}}}"
