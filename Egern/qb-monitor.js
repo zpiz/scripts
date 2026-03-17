@@ -23,7 +23,7 @@ export default async function(ctx) {
     const loginResp = await ctx.http.post(`${qbUrl}/api/v2/auth/login`, {
       headers: { 
         "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": qbUrl // 部分高版本 qB 开启了 CSRF 防护，需要带上 Referer
+        "Referer": qbUrl
       },
       body: `username=${encodeURIComponent(qbUser)}&password=${encodeURIComponent(qbPass)}`,
       timeout: 5000
@@ -32,7 +32,6 @@ export default async function(ctx) {
     // 2. 暴力且精准的 Cookie (SID) 提取逻辑
     let sid = "";
     const rawHeaders = JSON.stringify(loginResp.headers);
-    // 使用正则直接在所有的 Header 字符串中强行匹配 SID 的值
     const sidMatch = rawHeaders.match(/SID=([^;,"]+)/); 
     
     if (sidMatch) {
@@ -40,7 +39,6 @@ export default async function(ctx) {
     }
 
     if (!sid) {
-      // 进一步排查：如果账号密码错误，qB 会返回 200 OK，但 body 是 "Fails."
       const resText = await loginResp.text();
       if (resText === "Fails.") throw new Error("账号或密码错误");
       throw new Error("未能获取 SID，检查反代配置");
@@ -156,21 +154,32 @@ export default async function(ctx) {
     },
     padding: paddingVal,
     children: [
+      // 第一行：标题栏（已取消右上角的速率显示）
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
           { type: "image", src: "sf-symbol:server.rack", color: "#AF52DE", width: 16, height: 16 },
           { type: "spacer", length: 6 },
-          { type: "text", text: "PT 面板", font: { size: "headline", weight: "bold" }, textColor: colorMainText },
-          { type: "spacer" },
-          { type: "stack", direction: "row", alignItems: "center", gap: 4, children: [
-            { type: "text", text: `⬇️${formatSpeed(transferInfo.dl_info_speed)}`, font: { size: "caption2", weight: "bold" }, textColor: colorDl }
-          ]}
+          { type: "text", text: "PT 面板", font: { size: "headline", weight: "bold" }, textColor: colorMainText }
         ]
       },
-      { type: "spacer", length: isSmall ? 12 : 16 },
+      { type: "spacer", length: 8 },
+      
+      // 第二行：全局上传与下载速率独立展示区
+      {
+        type: "stack", direction: "row", alignItems: "center", gap: 12,
+        children: [
+          { type: "text", text: `⬇️ ${formatSpeed(transferInfo.dl_info_speed)}`, font: { size: "subheadline", weight: "bold" }, textColor: colorDl },
+          { type: "text", text: `⬆️ ${formatSpeed(transferInfo.up_info_speed)}`, font: { size: "subheadline", weight: "bold" }, textColor: colorUp }
+        ]
+      },
+      { type: "spacer", length: isSmall ? 8 : 12 },
+      
+      // 第三行：正在下载的具体任务列表
       ...tasksContent,
       { type: "spacer" },
+      
+      // 第四行：底部时间
       {
         type: "stack", direction: "row", alignItems: "center", gap: 4,
         children: [
