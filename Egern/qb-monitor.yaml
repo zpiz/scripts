@@ -11,7 +11,7 @@ compat_arguments:
 scriptings:
   - generic:
       name: "qb-monitor-script"
-      script_url: "https://你的服务器地址/qb-monitor.js"
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/qb-monitor.js"
       timeout: 10
 
 widgets:
