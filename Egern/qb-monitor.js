@@ -8,7 +8,6 @@ export default async function(ctx) {
   let isError = false;
   let errorMsg = "网络或认证失败";
 
-  // 工具函数：格式化网速
   const formatSpeed = (bytes) => {
     if (!bytes || bytes === 0) return "0 KB/s";
     const k = 1024;
@@ -18,26 +17,36 @@ export default async function(ctx) {
   };
 
   try {
-    if (!qbUrl) throw new Error("请在模块配置中填写 QB_URL");
+    if (!qbUrl || !qbUser) throw new Error("请在模块配置中填写账号与地址");
 
-    // 1. 登录获取 Cookie
+    // 1. 发送登录验证请求
     const loginResp = await ctx.http.post(`${qbUrl}/api/v2/auth/login`, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { 
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": qbUrl // 部分高版本 qB 开启了 CSRF 防护，需要带上 Referer
+      },
       body: `username=${encodeURIComponent(qbUser)}&password=${encodeURIComponent(qbPass)}`,
       timeout: 5000
     });
 
-    const cookieHeader = loginResp.headers.get("set-cookie") || loginResp.headers["set-cookie"];
+    // 2. 暴力且精准的 Cookie (SID) 提取逻辑
     let sid = "";
-    if (Array.isArray(cookieHeader)) {
-      const match = cookieHeader.find(c => c.includes("SID="));
-      if (match) sid = match.split(";")[0];
-    } else if (typeof cookieHeader === "string") {
-      sid = cookieHeader.split(";")[0];
+    const rawHeaders = JSON.stringify(loginResp.headers);
+    // 使用正则直接在所有的 Header 字符串中强行匹配 SID 的值
+    const sidMatch = rawHeaders.match(/SID=([^;,"]+)/); 
+    
+    if (sidMatch) {
+      sid = `SID=${sidMatch[1]}`;
     }
-    if (!sid) throw new Error("登录验证失败");
 
-    // 2. 并发获取全局速率与正在下载的任务列表
+    if (!sid) {
+      // 进一步排查：如果账号密码错误，qB 会返回 200 OK，但 body 是 "Fails."
+      const resText = await loginResp.text();
+      if (resText === "Fails.") throw new Error("账号或密码错误");
+      throw new Error("未能获取 SID，检查反代配置");
+    }
+
+    // 3. 并发获取数据
     const [transferResp, torrentsResp] = await Promise.all([
       ctx.http.get(`${qbUrl}/api/v2/transfer/info`, { headers: { "Cookie": sid }, timeout: 5000 }),
       ctx.http.get(`${qbUrl}/api/v2/torrents/info?filter=downloading`, { headers: { "Cookie": sid }, timeout: 5000 })
@@ -46,7 +55,6 @@ export default async function(ctx) {
     transferInfo = await transferResp.json();
     const torrentsData = await torrentsResp.json();
     if (Array.isArray(torrentsData)) {
-      // 按下载速度降序排列任务，把跑得最快的放在前面
       activeTorrents = torrentsData.sort((a, b) => b.dlspeed - a.dlspeed);
     }
     
@@ -62,7 +70,7 @@ export default async function(ctx) {
   const colorBgEnd = { light: "#F2F2F7", dark: "#16213E" };
   const colorDl = "#34C759"; 
   const colorUp = "#007AFF"; 
-  const colorProgress = "#AF52DE"; // 紫色进度百分比
+  const colorProgress = "#AF52DE"; 
 
   const family = ctx.widgetFamily || "systemSmall";
   const isSmall = family === "systemSmall";
@@ -71,15 +79,12 @@ export default async function(ctx) {
   // ====== 1. 锁屏小组件逻辑 ======
   if (family === "accessoryInline") {
     let text = isError ? "qB 连接失败" : `⬇️${formatSpeed(transferInfo.dl_info_speed)} ⬆️${formatSpeed(transferInfo.up_info_speed)}`;
-    if (!isError && activeTorrents.length > 0) {
-      // 锁屏内联如果空间够，顺便加上第一个任务的名字截断
-      text += ` | ${activeTorrents[0].name.substring(0, 8)}...`;
-    }
+    if (!isError && activeTorrents.length > 0) text += ` | ${activeTorrents[0].name.substring(0, 8)}...`;
     return { type: "widget", children: [{ type: "text", text: text }] };
   }
 
   if (family === "accessoryRectangular") {
-    if (isError) return { type: "widget", children: [{ type: "text", text: "qBittorrent 离线" }] };
+    if (isError) return { type: "widget", children: [{ type: "text", text: errorMsg }] };
     return {
       type: "widget", gap: 4,
       children: [
@@ -91,16 +96,13 @@ export default async function(ctx) {
   }
 
   // ====== 2. 主屏幕任务列表构建逻辑 ======
-  // 构建单行任务 UI
   const buildTaskRow = (task) => {
     const progressPercent = (task.progress * 100).toFixed(1);
     const speed = formatSpeed(task.dlspeed);
     return {
       type: "stack", direction: "column", gap: 4,
       children: [
-        // 任务名 (限制1行自动省略号)
         { type: "text", text: task.name, font: { size: "caption1", weight: "medium" }, textColor: colorMainText, maxLines: 1 },
-        // 进度与速率区
         {
           type: "stack", direction: "row", alignItems: "center",
           children: [
@@ -117,18 +119,14 @@ export default async function(ctx) {
 
   const tasksContent = [];
   if (activeTorrents.length > 0) {
-    // 小号组件只展示 1 个，中/大号展示最多 3 个
     const maxTasks = isSmall ? 1 : 3;
     const tasksToShow = activeTorrents.slice(0, maxTasks);
     
     tasksToShow.forEach((task, index) => {
       tasksContent.push(buildTaskRow(task));
-      if (index < tasksToShow.length - 1) {
-        tasksContent.push({ type: "spacer", length: 8 });
-      }
+      if (index < tasksToShow.length - 1) tasksContent.push({ type: "spacer", length: 8 });
     });
   } else {
-    // 没有下载任务时的占位
     tasksContent.push({
       type: "stack", direction: "row", alignItems: "center", gap: 6,
       children: [
@@ -158,7 +156,6 @@ export default async function(ctx) {
     },
     padding: paddingVal,
     children: [
-      // 头部：标题与全局速率
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
@@ -166,20 +163,14 @@ export default async function(ctx) {
           { type: "spacer", length: 6 },
           { type: "text", text: "PT 面板", font: { size: "headline", weight: "bold" }, textColor: colorMainText },
           { type: "spacer" },
-          // 右上角精简显示全局速率
           { type: "stack", direction: "row", alignItems: "center", gap: 4, children: [
             { type: "text", text: `⬇️${formatSpeed(transferInfo.dl_info_speed)}`, font: { size: "caption2", weight: "bold" }, textColor: colorDl }
           ]}
         ]
       },
       { type: "spacer", length: isSmall ? 12 : 16 },
-      
-      // 中间：任务列表
       ...tasksContent,
-      
       { type: "spacer" },
-      
-      // 底部：更新时间
       {
         type: "stack", direction: "row", alignItems: "center", gap: 4,
         children: [
