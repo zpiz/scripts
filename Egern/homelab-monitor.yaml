@@ -1,16 +1,25 @@
 name: "HomeLab 监控小组件"
 description: "实时监控家中 NAS 和 Mac mini 的在线状态与网络延迟"
+author: "zpiz"
+
+# 1. 变量说明文字：显示在模块详情页 UI 顶部的提示
+compat_arguments_desc: "请在下方的面板中填入你实际的内网穿透域名（包含 https:// 和端口号）。"
+
+# 2. UI 变量定义：告诉 Egern 在 UI 上生成这两个输入框，并设定默认占位值
+compat_arguments:
+  NAS_URL: "https://nas.你的域名.com"
+  MAC_URL: "https://mac.你的域名.com:5700"
 
 scriptings:
   - generic:
       name: "homelab-script"
-      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/homelab-monitor.js" 
+      script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/homelab-monitor.js"
       timeout: 10
 
 widgets:
   - name: "homelab-widget"
     script_name: "homelab-script"
+    # 3. 变量注入：模块被启用时，Egern 会自动用你在 UI 里填写的值替换掉这里的 {{{ }}} 占位符
     env:
-      # 替换为你实际的外网访问域名或 IP
-      NAS_URL: "https://nas.你的域名.com"
-      MAC_URL: "https://mac.你的域名.com:端口"
+      NAS_URL: "{{{NAS_URL}}}"
+      MAC_URL: "{{{MAC_URL}}}"
