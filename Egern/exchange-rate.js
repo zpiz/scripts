@@ -4,6 +4,7 @@ export default async function(ctx) {
   let currentData = null;
   let yesterdayData = null;
   let isError = false;
+  let isUsingCache = false; // 新增：标记是否在使用缓存
 
   try {
     const respCurr = await ctx.http.get(currentUrl, { timeout: 5000 });
@@ -21,11 +22,36 @@ export default async function(ctx) {
       const prevUrl = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${prevDateStr}/v1/currencies/usd.json`;
       const respPrev = await ctx.http.get(prevUrl, { timeout: 5000 });
       yesterdayData = await respPrev.json();
+
+      // ==========================================
+      // 核心优化 1：网络请求成功，将数据写入本地缓存
+      // ==========================================
+      if (ctx.cache) {
+        ctx.cache.set("cached_currency_current", JSON.stringify(currentData));
+        ctx.cache.set("cached_currency_yesterday", JSON.stringify(yesterdayData));
+        ctx.cache.set("cached_currency_time", new Date().toISOString());
+      }
+    } else {
+      throw new Error("Invalid API Data");
+    }
+  } catch (e) {
+    // ==========================================
+    // 核心优化 2：网络请求失败，尝试读取本地缓存进行降级
+    // ==========================================
+    if (ctx.cache) {
+      const cachedCurr = ctx.cache.get("cached_currency_current");
+      const cachedYest = ctx.cache.get("cached_currency_yesterday");
+      
+      if (cachedCurr && cachedYest) {
+        currentData = JSON.parse(cachedCurr);
+        yesterdayData = JSON.parse(cachedYest);
+        isUsingCache = true; // 标记正在使用旧的缓存数据
+      } else {
+        isError = true; // 连缓存都没有，只能认命报错了
+      }
     } else {
       isError = true;
     }
-  } catch (e) {
-    isError = true;
   }
 
   const getRate = (data, id) => {
@@ -46,8 +72,8 @@ export default async function(ctx) {
   const colorBgStart = { light: "#FFFFFF", dark: "#1A1A2E" };
   const colorBgEnd = { light: "#F2F2F7", dark: "#16213E" };
   const colorTrendFlat = { light: "#8E8E93", dark: "#888888" };
-  const colorTrendUp = "#FF3B30";   // 系统红
-  const colorTrendDown = "#34C759"; // 系统绿
+  const colorTrendUp = "#FF3B30";   
+  const colorTrendDown = "#34C759"; 
 
   const currencyConfigs = isSmall 
     ? [
@@ -92,20 +118,24 @@ export default async function(ctx) {
 
   // ====== 锁屏小组件逻辑 ======
   if (family === "accessoryInline") {
-    const txt = isError ? "获取失败" : listData.slice(0,3).map(d => `${d.name.substring(0,2)}${d.rate}${d.trendSymbol}`).join(" ");
+    let txt = isError ? "获取失败" : listData.slice(0,3).map(d => `${d.name.substring(0,2)}${d.rate}${d.trendSymbol}`).join(" ");
+    if (isUsingCache) txt += " ⚠️"; // 锁屏提示缓存状态
     return { type: "widget", children: [{ type: "text", text: txt }] };
   }
   if (family === "accessoryRectangular") {
-    if (isError) return { type: "widget", children: [{ type: "text", text: "网络请求失败" }] };
+    if (isError) return { type: "widget", children: [{ type: "text", text: "网络请求失败且无缓存" }] };
     return {
       type: "widget", gap: 4,
-      children: listData.slice(0,3).map(d => ({
-        // 锁屏组件大部分由系统接管颜色，但明确指定趋势颜色依然能起到点缀作用
-        type: "text", 
-        text: `${d.name}: ${d.rate} ${d.trendSymbol}`, 
-        font: { size: "headline", weight: "bold" }, 
-        textColor: d.trendSymbol === "-" ? undefined : d.trendColor
-      }))
+      children: listData.slice(0,3).map((d, index) => {
+        let textStr = `${d.name}: ${d.rate} ${d.trendSymbol}`;
+        if (index === 0 && isUsingCache) textStr += " (离线缓存)";
+        return {
+          type: "text", 
+          text: textStr, 
+          font: { size: "headline", weight: "bold" }, 
+          textColor: d.trendSymbol === "-" ? undefined : d.trendColor
+        };
+      })
     };
   }
   if (family === "accessoryCircular") {
@@ -117,7 +147,7 @@ export default async function(ctx) {
           type: "stack", direction: "column", alignItems: "center", gap: 2,
           children: [
             { type: "image", src: "sf-symbol:dollarsign.circle", width: 18, height: 18 },
-            { type: "text", text: `${listData[0].rate}${listData[0].trendSymbol}`, font: { size: "caption1", weight: "bold" } }
+            { type: "text", text: `${listData[0].rate}${listData[0].trendSymbol}${isUsingCache ? '⚠️' : ''}`, font: { size: "caption1", weight: "bold" } }
           ]
         }
       ]
@@ -186,14 +216,24 @@ export default async function(ctx) {
       });
     }
   } else {
-    contentChildren.push({ type: "text", text: "网络或数据解析失败", textColor: colorTrendUp, font: { size: "subheadline" } });
+    contentChildren.push({ type: "text", text: "网络且缓存解析均失败", textColor: colorTrendUp, font: { size: "subheadline" } });
   }
+
+  // 计算缓存的真实生成时间
+  let displayTime = new Date().toISOString();
+  if (isUsingCache && ctx.cache) {
+      const cachedTime = ctx.cache.get("cached_currency_time");
+      if (cachedTime) displayTime = cachedTime;
+  }
+  
+  // 如果使用缓存，在底部时间前加个离线提示
+  const timePrefixText = isUsingCache ? "⚠️ 离线缓存于" : "更新于";
 
   return {
     type: "widget",
+    refreshAfter: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 建议系统 1 小时后刷新
     backgroundGradient: {
       type: "linear",
-      // 这里使用了支持深浅色切换的数组
       colors: [colorBgStart, colorBgEnd],
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
@@ -220,8 +260,9 @@ export default async function(ctx) {
         alignItems: "center",
         gap: 4,
         children: [
-          { type: "text", text: "更新于", font: { size: "caption2" }, textColor: colorSubText },
-          { type: "date", date: new Date().toISOString(), format: "time", font: { size: "caption2" }, textColor: colorSubText }
+          // 优化 3：更新底部时间戳逻辑，如果使用缓存，显示的是“上次成功获取数据的时间”
+          { type: "text", text: timePrefixText, font: { size: "caption2" }, textColor: isUsingCache ? "#FF9500" : colorSubText },
+          { type: "date", date: displayTime, format: "time", font: { size: "caption2" }, textColor: isUsingCache ? "#FF9500" : colorSubText }
         ]
       }
     ]
