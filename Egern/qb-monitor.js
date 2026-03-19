@@ -23,25 +23,48 @@ export default async function(ctx) {
     const loginResp = await ctx.http.post(`${qbUrl}/api/v2/auth/login`, {
       headers: { 
         "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": qbUrl
+        "Referer": qbUrl,
+        // 伪装一个常规浏览器的 UA，降低被反代 WAF 拦截的概率
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Mobile/15E148 Safari/604.1"
       },
       body: `username=${encodeURIComponent(qbUser)}&password=${encodeURIComponent(qbPass)}`,
       timeout: 5000
     });
 
-    // 2. 暴力且精准的 Cookie (SID) 提取逻辑
+    // 读取真实的 HTTP 状态码和响应体，用于精准排错
+    const statusCode = loginResp.status;
+    const resText = await loginResp.text();
+
+    // 如果状态码不是 200，说明连 qB 的大门都没碰到，直接被反向代理拦截了
+    if (statusCode !== 200) {
+      throw new Error(`反代拦截: HTTP ${statusCode}`);
+    }
+
+    // qB 如果账号密码错误，状态码也是 200，但正文是 Fails.
+    if (resText === "Fails.") {
+      throw new Error("qB 拒绝登录: 账号或密码错误");
+    }
+
+    // 2. 多重保险的 Cookie (SID) 提取逻辑
     let sid = "";
-    const rawHeaders = JSON.stringify(loginResp.headers);
-    const sidMatch = rawHeaders.match(/SID=([^;,"]+)/); 
     
-    if (sidMatch) {
-      sid = `SID=${sidMatch[1]}`;
+    // 方法 A：尝试通过标准的 headers.get 获取
+    const cookieHeader = loginResp.headers.get ? loginResp.headers.get("set-cookie") : null;
+    if (cookieHeader && typeof cookieHeader === 'string') {
+      const match = cookieHeader.match(/SID=([^;,]+)/);
+      if (match) sid = `SID=${match[1]}`;
+    }
+
+    // 方法 B：如果方法 A 失败，回退到暴力正则遍历全部 Headers
+    if (!sid) {
+      const rawHeaders = JSON.stringify(loginResp.headers);
+      const sidMatch = rawHeaders.match(/SID=([^;,"]+)/); 
+      if (sidMatch) sid = `SID=${sidMatch[1]}`;
     }
 
     if (!sid) {
-      const resText = await loginResp.text();
-      if (resText === "Fails.") throw new Error("账号或密码错误");
-      throw new Error("未能获取 SID，检查反代配置");
+      // 走到这里说明状态码是 200，但死活没有 SID。大概率是请求被 WAF 透明劫持了
+      throw new Error(`无 SID, 响应体前20字: ${resText.substring(0, 20)}`);
     }
 
     // 3. 并发获取数据
@@ -58,10 +81,10 @@ export default async function(ctx) {
     
   } catch (e) {
     isError = true;
-    if (e.message) errorMsg = e.message;
+    errorMsg = e.message || "未知错误";
   }
 
-  // ====== 自适应颜色配置 ======
+  // ====== 以下 UI 渲染逻辑保持原样，仅针对 errorMsg 做了适配 ======
   const colorMainText = { light: "#000000", dark: "#FFFFFF" };
   const colorSubText = { light: "#8E8E93", dark: "#888888" };
   const colorBgStart = { light: "#FFFFFF", dark: "#1A1A2E" };
@@ -74,15 +97,14 @@ export default async function(ctx) {
   const isSmall = family === "systemSmall";
   const paddingVal = isSmall ? 12 : 16;
 
-  // ====== 1. 锁屏小组件逻辑 ======
   if (family === "accessoryInline") {
-    let text = isError ? "qB 连接失败" : `⬇️${formatSpeed(transferInfo.dl_info_speed)} ⬆️${formatSpeed(transferInfo.up_info_speed)}`;
+    let text = isError ? "qB 异常" : `⬇️${formatSpeed(transferInfo.dl_info_speed)} ⬆️${formatSpeed(transferInfo.up_info_speed)}`;
     if (!isError && activeTorrents.length > 0) text += ` | ${activeTorrents[0].name.substring(0, 8)}...`;
     return { type: "widget", children: [{ type: "text", text: text }] };
   }
 
   if (family === "accessoryRectangular") {
-    if (isError) return { type: "widget", children: [{ type: "text", text: errorMsg }] };
+    if (isError) return { type: "widget", children: [{ type: "text", text: errorMsg, maxLines: 2 }] };
     return {
       type: "widget", gap: 4,
       children: [
@@ -93,7 +115,6 @@ export default async function(ctx) {
     };
   }
 
-  // ====== 2. 主屏幕任务列表构建逻辑 ======
   const buildTaskRow = (task) => {
     const progressPercent = (task.progress * 100).toFixed(1);
     const speed = formatSpeed(task.dlspeed);
@@ -134,18 +155,26 @@ export default async function(ctx) {
     });
   }
 
-  // ====== 3. 主屏幕最终组合 ======
+  const nextRefreshTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
   if (isError) {
     return {
       type: "widget", padding: paddingVal,
+      refreshAfter: nextRefreshTime,
       backgroundGradient: { type: "linear", colors: [colorBgStart, colorBgEnd], startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
-      children: [{ type: "text", text: errorMsg, textColor: "#FF3B30", font: { size: "subheadline" } }]
+      // 错误信息显示区
+      children: [
+        { type: "text", text: "qBittorrent 监控异常", font: { size: "headline", weight: "bold" }, textColor: "#FF3B30" },
+        { type: "spacer", length: 8 },
+        { type: "text", text: errorMsg, textColor: colorMainText, font: { size: "caption1" }, maxLines: 4 }
+      ]
     };
   }
 
   return {
     type: "widget",
     url: qbUrl, 
+    refreshAfter: nextRefreshTime,
     backgroundGradient: {
       type: "linear",
       colors: [colorBgStart, colorBgEnd],
@@ -154,7 +183,6 @@ export default async function(ctx) {
     },
     padding: paddingVal,
     children: [
-      // 第一行：标题栏（已取消右上角的速率显示）
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
@@ -164,8 +192,6 @@ export default async function(ctx) {
         ]
       },
       { type: "spacer", length: 8 },
-      
-      // 第二行：全局上传与下载速率独立展示区
       {
         type: "stack", direction: "row", alignItems: "center", gap: 12,
         children: [
@@ -174,12 +200,8 @@ export default async function(ctx) {
         ]
       },
       { type: "spacer", length: isSmall ? 8 : 12 },
-      
-      // 第三行：正在下载的具体任务列表
       ...tasksContent,
       { type: "spacer" },
-      
-      // 第四行：底部时间
       {
         type: "stack", direction: "row", alignItems: "center", gap: 4,
         children: [
