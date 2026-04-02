@@ -1,0 +1,14 @@
+{
+  "id": "tlyj_sync_config",
+  "name": "天龙驿站同步配置",
+  "keys": ["tlyj_QL"],
+  "settings": [
+    {
+      "id": "tlyj_QL",
+      "name": "青龙配置清单",
+      "val": "",
+      "type": "textarea",
+      "desc": "请填入JSON格式的配置，包含host, clientId, secret等"
+    }
+  ]
+}
