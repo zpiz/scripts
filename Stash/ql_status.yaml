@@ -1,7 +1,3 @@
-#!name=青龙监控
-#!desc=青龙监控
-#!icon=
-#!author=zpiz
 name: 青龙监控
 desc: 青龙监控
 script-providers:
@@ -14,6 +10,7 @@ script-providers:
 
 tiles:
   # 将脚本挂载为可视化面板
-  - name: "QingLong Status"
+  - name: "ql_monitor"
     title: "青龙简报" # 面板未加载成功前的默认标题
-    provider: ql_monitor
+    #icon:
+    collapsed: true
