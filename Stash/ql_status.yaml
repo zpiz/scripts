@@ -1,3 +1,9 @@
+#!name=青龙监控
+#!desc=青龙监控
+#!icon=
+#!author=zpiz
+name: 青龙监控
+desc: 青龙监控
 script-providers:
   # 声明脚本提供者
   ql_monitor:
