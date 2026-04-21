@@ -1,0 +1,13 @@
+script-providers:
+  # 声明脚本提供者
+  ql_monitor:
+    # 这里填写你存放 JS 文件的相对路径或绝对路径
+    url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Stash/ql_status.js" 
+    # 刷新间隔，单位秒。600秒 = 10分钟在后台无感刷新一次
+    interval: 600
+
+tiles:
+  # 将脚本挂载为可视化面板
+  - name: "QingLong Status"
+    title: "青龙简报" # 面板未加载成功前的默认标题
+    provider: ql_monitor
