@@ -1,3 +1,7 @@
+name: "Exchange Rate"
+desc: "汇率看板"
+author: "zpiz"
+category: "功能模块"
 script-providers:
   # 声明汇率脚本
   exchange_rate_script:
