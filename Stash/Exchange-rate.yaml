@@ -1,0 +1,12 @@
+script-providers:
+  # 声明汇率脚本
+  exchange_rate_script:
+    # 这里填写 JS 文件的路径或直连 URL
+    url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/exchange-rate.js" 
+    # 刷新间隔，单位秒。3600秒 = 1小时自动刷新一次（汇率没必要太高频，避免被API封禁）
+    interval: 3600
+
+tiles:
+  # 将该脚本作为面板显示在首页
+  - name: "exchange_rate_script"
+    title: "汇率看板" # 默认名称，脚本执行后会被脚本中的 title 覆盖
