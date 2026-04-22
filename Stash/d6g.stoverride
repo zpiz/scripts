@@ -23,6 +23,11 @@ http:
       require-body: true
       max-size: -1
       timeout: 60
+cron:
+  script:
+    - name: "d6g_10"
+      cron: "21 10 * * *"
+      timeout: 120
 
 script-providers:
   "d6g_10":
