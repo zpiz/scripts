@@ -1,0 +1,30 @@
+name: d6g
+desc: d6g
+author:Levi
+icon: https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1078.png
+category: Crontask
+
+http:
+
+  mitm:
+    - "api.vshop.hchiv.cn"
+
+  script:
+    - match: ^https:\/\/api\.vshop\.hchiv\.cn\/jfmb\/cloud\/member\/tblogin\/getClientInfo
+      name: "d6g_10"
+      type: response
+      require-body: true
+      max-size: -1
+      timeout: 60
+
+    - match: ^https:\/\/api\.vshop\.hchiv\.cn\/jfmb\/cloud\/activity\/activity\/activityInfo
+      name: "d6g_10"
+      type: request
+      require-body: true
+      max-size: -1
+      timeout: 60
+
+script-providers:
+  "d6g_10":
+    url: https://script.levifree.qzz.io/d6g.js
+    interval: 86400
