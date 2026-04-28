@@ -1,7 +1,6 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
-@Date: 2026-04-28 尝试修复点赞任务
 @Date: 2024-09-18 09:15
 
 @Description:
@@ -77,31 +76,28 @@ async function main() {
           await $.wait(user.getRandomTime());
         }
         // 创建动态
-        const postContent = user.buildPostContent()
-        const created = await user.createArticle(postContent)
+        const postContent = `开心的一天 ${Date.now()}`
+        await user.createArticle(postContent)
         await $.wait(user.getRandomTime());
-        const interactPostId = await user.getCommunityPostId()
-        let createdPostId = null
-        if (created) {
-          createdPostId = await user.getArticles(postContent)
-          await $.wait(user.getRandomTime());
-        }
-        if (interactPostId) {
-          // 点赞
-          await user.thumbsUp(interactPostId)
-          await $.wait(user.getRandomTime());
-          // 评论动态
-          await user.comment(interactPostId)
-          await $.wait(user.getRandomTime());
-          // 分享动态
-          await user.share(interactPostId)
-          await $.wait(user.getRandomTime());
-        }
-        // 删除自己新创建的动态
-        if (createdPostId) {
-          await user.deletePost(createdPostId)
-          await $.wait(user.getRandomTime());
-        }
+        // 获取自己刚发的动态
+        const myPostId = await user.getArticles(postContent)
+        await $.wait(user.getRandomTime());
+        // 获取社区动态
+        const postId = await user.getCommunityPost()
+        await $.wait(user.getRandomTime());
+        // 点赞
+        await user.thumbsUp(postId)
+        await $.wait(user.getRandomTime());
+        // 评论
+        await user.comment(postId)
+        await $.wait(user.getRandomTime());
+        // 分享动态
+        await user.share(postId)
+        await $.wait(user.getRandomTime());
+        
+        // 删除动态
+        await user.deletePost(myPostId)
+        await $.wait(user.getRandomTime());
         //查询待领取积分
         const score = await user.getSignInfo();
         $.title = `本次运行共获得${((integral || 0) + (integralScore || 0) + 3)}积分`;
@@ -139,12 +135,6 @@ class UserInfo {
       "Authorization": this.token,
       "User-Agent": this.userAgent,
     }
-    this.postTemplates = [
-      '开心的一天',
-      '今天也来极核打个卡',
-      '路过，分享一下日常',
-      '签到顺手发个动态'
-    ];
     this.getRandomTime = () => randomInt(1e3, 3e3);
     this.fetch = async (o) => {
       try {
@@ -159,9 +149,6 @@ class UserInfo {
         $.log(`⛔️ 请求发起失败！${e}`);
       }
     }
-  }
-  buildPostContent() {
-    return this.postTemplates[randomInt(0, this.postTemplates.length - 1)];
   }
   //签到
   async signin() {
@@ -251,7 +238,7 @@ class UserInfo {
     }
   }
   // 创建动态
-  async createArticle(postcontent) {
+  async createArticle(postcontent = "开心的一天") {
     try {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle`,
@@ -270,18 +257,16 @@ class UserInfo {
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
         $.log(`✅ 创建动态: 成功`);
-        return true;
       } else {
-        $.log(`⛔️ 创建动态失败: ${res?.message || '未知错误'}`);
+        $.log(`⛔️ 创建动态失败: ${res?.message}`);
       }
-      return false;
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 创建动态失败! ${e}`);
-      return false;
     }
   }
-  // 获取自己新创建的动态
-  async getArticles(postcontent) {
+  // 获取动态列表
+  async getArticles(postcontent = "") {
     try {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/qbTzInfoNewV2`,
@@ -289,6 +274,7 @@ class UserInfo {
         headers: Object.assign(this.headers, getSign('app')),
         dataType: "json",
         params: {
+          page: 1,
           pageSize: 20,
           postModule: 1,
           slidingType: 1
@@ -296,21 +282,19 @@ class UserInfo {
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
-        const list = Array.isArray(res?.data) ? res.data : [];
-        const mine = list.find(item => item?.userid == this.userId && (!postcontent || item?.tcontent == postcontent || item?.ttitle == postcontent));
-        const postId = mine?.tuuid
+        const list = Array.isArray(res?.data) ? res.data : []
+        const post = list.find(item => item?.userid == this.userId && (!postcontent || item?.tcontent == postcontent || item?.ttitle == postcontent)) || list.find(item => item?.userid == this.userId)
+        const postId = post?.tuuid
         $.log(`✅ 获取动态: ${postId}`);
         return postId
       }
-      $.log(`⛔️ 获取动态列表失败: ${res?.message || '未找到动态'}`);
-      return null
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 获取动态列表失败! ${e}`);
-      return null
     }
   }
-  // 获取可互动动态
-  async getCommunityPostId() {
+  // 获取社区动态
+  async getCommunityPost() {
     try {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/qbTzInfoNewV2`,
@@ -326,24 +310,22 @@ class UserInfo {
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
-        const list = Array.isArray(res?.data) ? res.data : [];
-        const postId = list.find(item => item?.tuuid)?.tuuid;
-        $.log(`✅ 获取互动动态: ${postId}`);
-        return postId || null;
+        const list = Array.isArray(res?.data) ? res.data : []
+        const postId = list.find(item => item?.tuuid && item?.userid != this.userId)?.tuuid || list.find(item => item?.tuuid)?.tuuid
+        $.log(`✅ 获取社区动态: ${postId}`);
+        return postId
       }
-      $.log(`⛔️ 获取互动动态失败: ${res?.message || '未找到可互动动态'}`);
-      return null;
     } catch (e) {
-      $.log(`⛔️ 获取互动动态失败! ${e}`);
-      return null;
+      this.ckStatus = false;
+      $.log(`⛔️ 获取社区动态失败! ${e}`);
     }
   }
   // 点赞动态
   async thumbsUp(postId) {
     try {
       if (!postId) {
-        $.log(`⛔️ 点赞动态失败: postId为空`);
-        return false;
+        $.log(`⛔️ 点赞动态失败: 未获取到帖子ID`);
+        return;
       }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/socialCommu/likeFavoriteInfo`,
@@ -358,21 +340,20 @@ class UserInfo {
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
         $.log(`✅ 点赞动态: ${postId}`)
-        return true;
+      } else {
+        $.log(`⛔️ 点赞动态失败: ${res?.message}`);
       }
-      $.log(`⛔️ 点赞动态失败: ${res?.message || '未知错误'}`);
-      return false;
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 点赞动态失败! ${e}`);
-      return false;
     }
   }
   // 评论动态
   async comment(postId) {
     try {
       if (!postId) {
-        $.log(`⛔️ 评论动态失败: postId为空`);
-        return false;
+        $.log(`⛔️ 评论动态失败: 未获取到帖子ID`);
+        return;
       }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commentInfo`,
@@ -389,61 +370,78 @@ class UserInfo {
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
         $.log(`✅ 评论动态: ${postId}`)
-        return true;
+      } else {
+        $.log(`⛔️ 评论动态失败: ${res?.message}`);
       }
-      $.log(`⛔️ 评论动态失败: ${res?.message || '未知错误'}`);
-      return false;
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 评论动态失败! ${e}`);
-      return false;
     }
   }
   // 分享动态
   async share(postId) {
     try {
       if (!postId) {
-        $.log(`⛔️ 分享失败: postId为空`);
-        return false;
+        $.log(`⛔️ 分享失败: 未获取到帖子ID`);
+        return;
       }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/article/share/${postId}`,
-        type: "put",
+        method: "put",
         headers: Object.assign(this.headers, getSign('app'))
       }
-      let res = await this.fetch(opts);
+      let res = await new Promise((resolve, reject) => {
+        $.http['post'](opts)
+          .then((response) => {
+            var resp = response.body;
+            try {
+              resp = $.toObj(resp) || resp;
+            } catch (e) { }
+            resolve(resp);
+          })
+          .catch((err) => reject(err));
+      });
       if (res?.code == '10000') {
         $.log(`✅ 分享动态: ${postId}`)
-        return true;
+      } else {
+        $.log(`⛔️ 分享失败: ${res?.message}`);
       }
-      $.log(`⛔️ 分享失败: ${res?.message || '未知错误'}`);
-      return false;
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 分享失败! ${e}`);
-      return false;
     }
   }
   // 删除动态
   async deletePost(postId) {
     try {
       if (!postId) {
-        $.log(`⛔️ 删除动态失败: postId为空`);
-        return false;
+        $.log(`⛔️ 删除动态失败: 未获取到帖子ID`);
+        return;
       }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle/deleteArticle?articleId=${postId}&postType=1`,
-        type: "delete",
+        method: "delete",
         headers: Object.assign(this.headers, getSign('app'))
       }
-      let res = await this.fetch(opts);
+      let res = await new Promise((resolve, reject) => {
+        $.http['post'](opts)
+          .then((response) => {
+            var resp = response.body;
+            try {
+              resp = $.toObj(resp) || resp;
+            } catch (e) { }
+            resolve(resp);
+          })
+          .catch((err) => reject(err));
+      });
       if (res?.code == '10000') {
         $.log(`✅ 删除动态: ${postId}`)
-        return true;
+      } else {
+        $.log(`⛔️ 删除动态失败: ${res?.message}`);
       }
-      $.log(`⛔️ 删除动态失败: ${res?.message || '未知错误'}`);
-      return false;
     } catch (e) {
+      this.ckStatus = false;
       $.log(`⛔️ 删除动态失败! ${e}`);
-      return false;
     }
   }
   
@@ -518,19 +516,18 @@ async function Request(o) {
   try {
     if (!o?.url) throw new Error('[发送请求] 缺少 url 参数');
     // type => 因为env中使用method处理post的特殊请求(put/delete/patch), 所以这里使用type
-    let { url: u, type, method: rawMethod, headers = {}, body: b, params, dataType = 'form', resultType = 'data' } = o;
-    const method = (type || rawMethod || ('body' in o ? 'post' : 'get')).toLowerCase();
-    const query = params ? $.queryStr(params) : '';
-    const url = query && ['post', 'put', 'delete', 'patch'].includes(method) ? u.concat('?' + query) : u;
+    let { url: u, type, headers = {}, body: b, params, dataType = 'form', resultType = 'data' } = o;
+    // post请求需要处理params参数(get不需要, env已经处理)
+    const method = type ? type?.toLowerCase() : ('body' in o ? 'post' : 'get');
+    const url = u.concat(method === 'post' ? '?' + $.queryStr(params) : '');
 
     const timeout = o.timeout ? ($.isSurge() ? o.timeout / 1e3 : o.timeout) : 1e4
     // 根据jsonType处理headers
     if (dataType === 'json') headers['Content-Type'] = 'application/json;charset=UTF-8';
     // post请求处理body
     const body = b && dataType == 'form' ? $.queryStr(b) : $.toStr(b);
-    const request = { ...o, ...(o?.opts ? o.opts : {}), url, headers, ...(!['get', 'head'].includes(method) && b !== undefined && { body }), ...(query && ['get', 'head'].includes(method) && { params }), timeout: timeout, method }
-    const transport = ['get', 'head'].includes(method) ? 'get' : 'post';
-    const httpPromise = $.http[transport](request)
+    const request = { ...o, ...(o?.opts ? o.opts : {}), url, headers, ...(method === 'post' && { body }), ...(method === 'get' && params && { params }), timeout: timeout }
+    const httpPromise = $.http[method.toLowerCase()](request)
       .then(response => resultType == 'data' ? ($.toObj(response.body) || response.body) : ($.toObj(response) || response))
       .catch(err => $.log(`❌请求发起失败！原因为：${err}`));
     // 使用Promise.race来强行加入超时处理
