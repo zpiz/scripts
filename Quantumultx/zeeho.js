@@ -1,6 +1,7 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
+@Date: 2026-04-28 尝试修复点赞任务
 @Date: 2024-09-18 09:15
 
 @Description:
@@ -15,10 +16,10 @@ Boxjs订阅: https://raw.githubusercontent.com/leiyiyan/resource/main/subscribe/
 
 [Script]
 # 获取 Cookie
-http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/leiyiyan/resource/main/script/zeeho/zeeho.js, requires-body=true, timeout=60, tag=极核Cookie
+http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/zeeho.js, requires-body=true, timeout=60, tag=极核Cookie
 
 # 脚本任务
-cron "0 7 * * *" script-path=https://raw.githubusercontent.com/leiyiyan/resource/main/script/zeeho/zeeho.js, tag=极核
+cron "0 7 * * *" script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/zeeho.js, tag=极核
 
 [MITM]
 hostname = tapi.zeehoev.com
