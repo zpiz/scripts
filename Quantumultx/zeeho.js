@@ -1,7 +1,7 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
-@Date: 2024-09-18 09:15
+@Date: 2026-05-11 18:34
 
 @Description:
 极核 每日签到、积分任务
@@ -76,10 +76,14 @@ async function main() {
           await $.wait(user.getRandomTime());
         }
         // 创建动态
-        await user.createArticle()
+        let postId = await user.createArticle()
         await $.wait(user.getRandomTime());
         // 获取动态列表
-        const postId = await user.getArticles()
+        postId = postId || await user.getArticles()
+        if (!postId) {
+          $.log(`No postId, skip social tasks`);
+          continue;
+        }
         await $.wait(user.getRandomTime());
         // 点赞
         await user.thumbsUp(postId)
@@ -245,8 +249,12 @@ class UserInfo {
         }
       }
       let res = await this.fetch(opts);
-      if (res?.code == '10000' && res?.message == '操作成功') {
-        $.log(`✅ 创建动态: 成功`);
+      if (res?.code == '10000') {
+        const postId = getPostId(res?.data);
+        $.log(`create article success${postId ? ` ${postId}` : ''}`);
+        return postId;
+      } else {
+        $.log(`create article failed: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
@@ -267,9 +275,9 @@ class UserInfo {
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
-        const list = res?.data
-        const postId = list[0]?.tuuid
-        $.log(`✅ 获取动态: ${postId}`);
+        const list = Array.isArray(res?.data) ? res.data : (res?.data?.records || res?.data?.list || res?.data?.rows || [])
+        const postId = getPostId(list?.[0] || res?.data)
+        $.log(`get article: ${postId}`);
         return postId
       }
     } catch (e) {
@@ -286,7 +294,7 @@ class UserInfo {
         headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json",
         body: {
-          postId,
+          postId: String(postId),
           kindFlag:"0"
         }
       }
@@ -369,24 +377,19 @@ class UserInfo {
     try {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle/deleteArticle?articleId=${postId}&postType=1`,
-        method: "delete",
-        headers: Object.assign({}, this.headers, getSign('app'))
+        type: "delete",
+        headers: Object.assign({}, this.headers, getSign('app')),
+        dataType: "json"
       }
-      let res = await new Promise((resolve, reject) => {
-        $.http['post'](opts)
-          .then((response) => {
-            var resp = response.body;
-            try {
-              resp = $.toObj(resp) || resp;
-            } catch (e) { }
-            resolve(resp);
-          })
-          .catch((err) => reject(err));
-      });
-      $.log(`✅ 删除动态: ${postId}`)
+      const res = await this.fetch(opts);
+      if (res?.code == '10000') {
+        $.log(`delete article: ${postId}`)
+      } else {
+        $.log(`delete article failed: ${res?.message}`)
+      }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`⛔️ 删除动态失败! ${e}`);
+      $.log(`delete article failed! ${e}`);
     }
   }
   
@@ -410,6 +413,12 @@ class UserInfo {
       $.log(`⛔️ 查询用户信息失败! ${e}`);
     }
   }
+}
+function getPostId(data) {
+  if (!data) return null;
+  if (typeof data === 'string' || typeof data === 'number') return String(data);
+  if (Array.isArray(data)) return getPostId(data[0]);
+  return data.uuid || data.tuuid || data.postId || data.postid || data.articleId || data.id || data.dataId || null;
 }
 async function getCookie() {
   if ($request && $request.method === 'OPTIONS') return;
