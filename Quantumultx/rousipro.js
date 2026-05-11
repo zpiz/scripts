@@ -53,7 +53,10 @@ class RousiPro {
       timeout: 15000
     });
     const data = $.toObj(response.body, response.body);
-    if (response.statusCode >= 400) throw new Error(`HTTP ${response.statusCode}: ${response.body || ""}`);
+    if (response.statusCode >= 400) {
+      const message = data?.message || response.body || `HTTP ${response.statusCode}`;
+      throw new Error(message);
+    }
     return data;
   }
 
@@ -75,6 +78,10 @@ class RousiPro {
       return data;
     }
     const message = res?.message || "签到失败";
+    if (message.includes("今日已签到")) {
+      this.log("✅ 今日已签到");
+      return { already: true };
+    }
     this.log(`⛔️ 签到失败: ${message}`);
     throw new Error(message);
   }
@@ -147,8 +154,13 @@ async function main() {
       await user.run();
     } catch (e) {
       const message = e?.message || e;
-      user.log(`⛔️ 执行失败: ${message}`);
-      notifyMsg.push(`「${user.userName}」执行失败: ${message}`);
+      if (String(message).includes("今日已签到")) {
+        user.log("✅ 今日已签到");
+        notifyMsg.push(`「${user.userName}」今日已签到`);
+      } else {
+        user.log(`⛔️ 执行失败: ${message}`);
+        notifyMsg.push(`「${user.userName}」执行失败: ${message}`);
+      }
     }
     if (i < userCookie.length - 1) await $.wait(randomInt(1000, 3000));
   }
