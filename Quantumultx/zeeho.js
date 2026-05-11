@@ -15,10 +15,10 @@ Boxjs订阅: https://raw.githubusercontent.com/leiyiyan/resource/main/subscribe/
 
 [Script]
 # 获取 Cookie
-http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/zeeho.js, requires-body=true, timeout=60, tag=极核Cookie
+http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/leiyiyan/resource/main/script/zeeho/zeeho.js, requires-body=true, timeout=60, tag=极核Cookie
 
 # 脚本任务
-cron "0 7 * * *" script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/zeeho.js, tag=极核
+cron "0 7 * * *" script-path=https://raw.githubusercontent.com/leiyiyan/resource/main/script/zeeho/zeeho.js, tag=极核
 
 [MITM]
 hostname = tapi.zeehoev.com
@@ -76,31 +76,26 @@ async function main() {
           await $.wait(user.getRandomTime());
         }
         // 创建动态
-        const postContent = `开心的一天 ${Date.now()}`
-        await user.createArticle(postContent)
+        await user.createArticle()
         await $.wait(user.getRandomTime());
-        // 获取自己刚发的动态
-        const myPostId = await user.getArticles(postContent)
-        await $.wait(user.getRandomTime());
-        // 获取社区动态
-        const postId = await user.getCommunityPost()
+        // 获取动态列表
+        const postId = await user.getArticles()
         await $.wait(user.getRandomTime());
         // 点赞
         await user.thumbsUp(postId)
         await $.wait(user.getRandomTime());
-        // 评论
+        // 分享动态
         await user.comment(postId)
         await $.wait(user.getRandomTime());
-        // 分享动态
         await user.share(postId)
         await $.wait(user.getRandomTime());
         
         // 删除动态
-        await user.deletePost(myPostId)
+        await user.deletePost(postId)
         await $.wait(user.getRandomTime());
         //查询待领取积分
         const score = await user.getSignInfo();
-        $.title = `本次运行共获得${((integral || 0) + (integralScore || 0) + 3)}积分`;
+        $.title = `本次运行共获得${(integral + integralScore + 3)}积分`;
         DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
       } else {
         //将ck过期消息存入消息数组
@@ -159,7 +154,7 @@ class UserInfo {
       const opts = {
         url: "https://h5.zeehoev.com/cfmotoservermine/signin",
         type: "post",
-        headers: Object.assign(this.headers, getSign('h5', params)),
+        headers: Object.assign({}, this.headers, getSign('h5', params)),
         params,
         dataType: "json"
       }
@@ -192,7 +187,7 @@ class UserInfo {
       const opts = {
         url: "https://h5.zeehoev.com/cfmotoservermine/signin/info",
         type: "get",
-        headers: Object.assign(this.headers, getSign('h5', params)),
+        headers: Object.assign({}, this.headers, getSign('h5', params)),
         params,
         dataType: "json"
       }
@@ -219,7 +214,7 @@ class UserInfo {
       const opts = {
         url: "https://h5.zeehoev.com/cfmotoservermine/signin/lottery",
         type: "get",
-        headers: Object.assign(this.headers, getSign('h5', params)),
+        headers: Object.assign({}, this.headers, getSign('h5', params)),
         params,
         dataType: "json"
       }
@@ -238,27 +233,20 @@ class UserInfo {
     }
   }
   // 创建动态
-  async createArticle(postcontent = "开心的一天") {
+  async createArticle() {
     try {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle`,
         type: "post",
         dataType: "json",
-        headers: Object.assign(this.headers, getSign('app')),
+        headers: Object.assign({}, this.headers, getSign('app')),
         body: {
-          topicid: "",
-          files: "[]",
-          postSubInfo: {
-            topicList: []
-          },
-          postcontent
+          postcontent: "开心的一天"
         }
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
         $.log(`✅ 创建动态: 成功`);
-      } else {
-        $.log(`⛔️ 创建动态失败: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
@@ -266,25 +254,21 @@ class UserInfo {
     }
   }
   // 获取动态列表
-  async getArticles(postcontent = "") {
+  async getArticles() {
     try {
       const opts = {
-        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/qbTzInfoNewV2`,
+        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/mineArticleInfo`,
         type: "get",
-        headers: Object.assign(this.headers, getSign('app')),
+        headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json",
         params: {
-          page: 1,
-          pageSize: 20,
-          postModule: 1,
-          slidingType: 1
+          userId: this.userId
         }
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
-        const list = Array.isArray(res?.data) ? res.data : []
-        const post = list.find(item => item?.userid == this.userId && (!postcontent || item?.tcontent == postcontent || item?.ttitle == postcontent)) || list.find(item => item?.userid == this.userId)
-        const postId = post?.tuuid
+        const list = res?.data
+        const postId = list[0]?.tuuid
         $.log(`✅ 获取动态: ${postId}`);
         return postId
       }
@@ -293,44 +277,13 @@ class UserInfo {
       $.log(`⛔️ 获取动态列表失败! ${e}`);
     }
   }
-  // 获取社区动态
-  async getCommunityPost() {
-    try {
-      const opts = {
-        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/qbTzInfoNewV2`,
-        type: "get",
-        headers: Object.assign(this.headers, getSign('app')),
-        dataType: "json",
-        params: {
-          page: 1,
-          pageSize: 20,
-          postModule: 2,
-          slidingType: 1
-        }
-      }
-      let res = await this.fetch(opts);
-      if (res?.code == '10000' && res?.message == '操作成功') {
-        const list = Array.isArray(res?.data) ? res.data : []
-        const postId = list.find(item => item?.tuuid && item?.userid != this.userId)?.tuuid || list.find(item => item?.tuuid)?.tuuid
-        $.log(`✅ 获取社区动态: ${postId}`);
-        return postId
-      }
-    } catch (e) {
-      this.ckStatus = false;
-      $.log(`⛔️ 获取社区动态失败! ${e}`);
-    }
-  }
   // 点赞动态
   async thumbsUp(postId) {
     try {
-      if (!postId) {
-        $.log(`⛔️ 点赞动态失败: 未获取到帖子ID`);
-        return;
-      }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/socialCommu/likeFavoriteInfo`,
         type: "post",
-        headers: Object.assign(this.headers, getSign('app')),
+        headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json",
         body: {
           postId,
@@ -338,90 +291,86 @@ class UserInfo {
         }
       }
       const res = await this.fetch(opts);
-      if (res?.code == '10000') {
-        $.log(`✅ 点赞动态: ${postId}`)
-      } else {
-        $.log(`⛔️ 点赞动态失败: ${res?.message}`);
-      }
+      $.log(`✅ 点赞动态: ${postId}`)
     } catch (e) {
       this.ckStatus = false;
       $.log(`⛔️ 点赞动态失败! ${e}`);
     }
   }
-  // 评论动态
+  // ????
+  async share(postId) {
+    try {
+      const opts = {
+        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/article/share/${postId}`,
+        type: "put",
+        headers: Object.assign({}, this.headers, getSign('app')),
+        dataType: "json"
+      }
+      let res = await this.fetch(opts);
+      if (res?.code == '10000') {
+        $.log(`share task: ${postId}`)
+      } else {
+        $.log(`share task failed! ${res?.message}`);
+      }
+      await this.adjustByShare();
+    } catch (e) {
+      this.ckStatus = false;
+      $.log(`share task failed! ${e}`);
+    }
+  }
+  // ????
+  async adjustByShare() {
+    try {
+      const opts = {
+        url: `https://tapi.zeehoev.com/v1.0/mine/cfmotoservermine/integral/adjustByShare`,
+        type: "get",
+        headers: Object.assign({}, this.headers, getSign('app')),
+        dataType: "json"
+      }
+      const res = await this.fetch(opts);
+      if (res?.code == '10000') {
+        $.log(`share integral: triggered`)
+      } else {
+        $.log(`share integral failed: ${res?.message}`);
+      }
+    } catch (e) {
+      this.ckStatus = false;
+      $.log(`share integral failed! ${e}`);
+    }
+  }
+  // ????
   async comment(postId) {
     try {
-      if (!postId) {
-        $.log(`⛔️ 评论动态失败: 未获取到帖子ID`);
-        return;
-      }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commentInfo`,
         type: "post",
-        headers: Object.assign(this.headers, getSign('app')),
+        headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json",
         body: {
-          postid: postId,
-          userId: this.userId,
-          comments: "不错",
+          postid: String(postId),
+          userId: String(this.userId),
+          comments: "\u5389\u5bb3",
           sendTos: "[\n\n]"
         }
       }
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
-        $.log(`✅ 评论动态: ${postId}`)
+        $.log(`comment task: ${postId}`)
       } else {
-        $.log(`⛔️ 评论动态失败: ${res?.message}`);
+        $.log(`comment task failed: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`⛔️ 评论动态失败! ${e}`);
-    }
-  }
-  // 分享动态
-  async share(postId) {
-    try {
-      if (!postId) {
-        $.log(`⛔️ 分享失败: 未获取到帖子ID`);
-        return;
-      }
-      const opts = {
-        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/article/share/${postId}`,
-        method: "put",
-        headers: Object.assign(this.headers, getSign('app'))
-      }
-      let res = await new Promise((resolve, reject) => {
-        $.http['post'](opts)
-          .then((response) => {
-            var resp = response.body;
-            try {
-              resp = $.toObj(resp) || resp;
-            } catch (e) { }
-            resolve(resp);
-          })
-          .catch((err) => reject(err));
-      });
-      if (res?.code == '10000') {
-        $.log(`✅ 分享动态: ${postId}`)
-      } else {
-        $.log(`⛔️ 分享失败: ${res?.message}`);
-      }
-    } catch (e) {
-      this.ckStatus = false;
-      $.log(`⛔️ 分享失败! ${e}`);
+      $.log(`comment task failed! ${e}`);
     }
   }
   // 删除动态
   async deletePost(postId) {
     try {
-      if (!postId) {
-        $.log(`⛔️ 删除动态失败: 未获取到帖子ID`);
-        return;
-      }
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle/deleteArticle?articleId=${postId}&postType=1`,
         method: "delete",
-        headers: Object.assign(this.headers, getSign('app'))
+        headers: Object.assign({}, this.headers, getSign('app'))
       }
       let res = await new Promise((resolve, reject) => {
         $.http['post'](opts)
@@ -434,11 +383,7 @@ class UserInfo {
           })
           .catch((err) => reject(err));
       });
-      if (res?.code == '10000') {
-        $.log(`✅ 删除动态: ${postId}`)
-      } else {
-        $.log(`⛔️ 删除动态失败: ${res?.message}`);
-      }
+      $.log(`✅ 删除动态: ${postId}`)
     } catch (e) {
       this.ckStatus = false;
       $.log(`⛔️ 删除动态失败! ${e}`);
@@ -451,7 +396,7 @@ class UserInfo {
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/mine/cfmotoservermine/setting/${this.userId}`,
         type: "get",
-        headers: Object.assign(this.headers, getSign('app')),
+        headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json"
       }
       let res = await this.fetch(opts);
@@ -494,7 +439,7 @@ async function getCookie() {
   $.setjson(userCookie, ckName);
   $.msg($.name, `🎉${newData.userName}更新token成功!`, ``);
 }
-function getSign(type, params = {}) {
+function getSign(type, params = {}, body = '') {
   const appConfig = {
     appId: type === "h5" ? "azRnLvxl" : "S7qPWPU1",
     appSecret: type === "h5" ? "76d9baa27803da36d07ec4972fd041b32fcec40d" : "c5e0da7f4da28df805694ec3dd1fc6792e9df99d"
@@ -502,11 +447,17 @@ function getSign(type, params = {}) {
   const query = Object.keys(params).map(key => `${key}=${params[key]}`).join('&')
   const timestamp = new Date().getTime()
   const nonce = type === "h5" ? getUuid() : timestamp + getRandomChars()
-  const signature = type === "h5" ? `${query}appId=${appConfig.appId}&nonce=${nonce}&timestamp=${timestamp}${appConfig.appSecret}` : `appId=${appConfig.appId}&nonce=${nonce}&timestamp=${timestamp}${appConfig.appSecret}`
+  const param = `appId=${appConfig.appId}&nonce=${nonce}&timestamp=${timestamp}`
+  const bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : ''
+  const signature = type === "h5" ? `${query}${param}${appConfig.appSecret}` : `${bodyStr}${param}${appConfig.appSecret}`
+  const sign = md5(sha1(signature), 32).toString()
   return {
-    'cfmoto-x-param': `appId=${appConfig.appId}&nonce=${nonce}&timestamp=${timestamp}`,
-    'cfmoto-x-sign': md5(sha1(signature), 32).toString(),
-    'cfmoto-x-sign-type': '0'
+    'cfmoto-x-param': param,
+    'cfmoto-x-sign': sign,
+    'cfmoto-x-sign-type': '0',
+    'timestamp': String(timestamp),
+    'nonce': nonce,
+    'signature': sign
   }
 }
 //-------------------------- 辅助函数区域 -----------------------------------
@@ -519,15 +470,23 @@ async function Request(o) {
     let { url: u, type, headers = {}, body: b, params, dataType = 'form', resultType = 'data' } = o;
     // post请求需要处理params参数(get不需要, env已经处理)
     const method = type ? type?.toLowerCase() : ('body' in o ? 'post' : 'get');
-    const url = u.concat(method === 'post' ? '?' + $.queryStr(params) : '');
+    const query = params ? $.queryStr(params) : '';
+    const url = u.concat(method === 'post' && query ? '?' + query : '');
 
     const timeout = o.timeout ? ($.isSurge() ? o.timeout / 1e3 : o.timeout) : 1e4
     // 根据jsonType处理headers
     if (dataType === 'json') headers['Content-Type'] = 'application/json;charset=UTF-8';
     // post请求处理body
     const body = b && dataType == 'form' ? $.queryStr(b) : $.toStr(b);
-    const request = { ...o, ...(o?.opts ? o.opts : {}), url, headers, ...(method === 'post' && { body }), ...(method === 'get' && params && { params }), timeout: timeout }
-    const httpPromise = $.http[method.toLowerCase()](request)
+    if (headers['cfmoto-x-param'] && body && method !== 'get') {
+      const signature = `${body}${headers['cfmoto-x-param']}c5e0da7f4da28df805694ec3dd1fc6792e9df99d`;
+      const sign = md5(sha1(signature), 32).toString();
+      headers['cfmoto-x-sign'] = sign;
+      headers['signature'] = sign;
+    }
+    const httpMethod = ['get', 'post'].includes(method) ? method : 'post';
+    const request = { ...o, ...(o?.opts ? o.opts : {}), url, method, headers, ...(method !== 'get' && body && { body }), ...(method === 'get' && params && { params }), timeout: timeout }
+    const httpPromise = $.http[httpMethod.toLowerCase()](request)
       .then(response => resultType == 'data' ? ($.toObj(response.body) || response.body) : ($.toObj(response) || response))
       .catch(err => $.log(`❌请求发起失败！原因为：${err}`));
     // 使用Promise.race来强行加入超时处理
