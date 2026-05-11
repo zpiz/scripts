@@ -1,7 +1,8 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
-@Date: 2026-05-11 18:34
+@Date: 2026-05-11 19:10 修复发帖等任务
+@Date: 2024-09-18 09:15
 
 @Description:
 极核 每日签到、积分任务
@@ -68,7 +69,7 @@ async function main() {
       if (user.ckStatus) {
         await $.wait(user.getRandomTime());
         // 查看签到记录
-        const {count, prize} = await user.getSignRecord()
+        const {count = 0, prize = 0} = await user.getSignRecord() || {}
         await $.wait(user.getRandomTime());
         if(prize == 3) {
           // 盲盒抽奖
@@ -81,7 +82,7 @@ async function main() {
         // 获取动态列表
         postId = postId || await user.getArticles()
         if (!postId) {
-          $.log(`No postId, skip social tasks`);
+          $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: \u672a\u83b7\u53d6\u5230\u52a8\u6001ID\uff0c\u8df3\u8fc7\u4e92\u52a8\u4efb\u52a1`);
           continue;
         }
         await $.wait(user.getRandomTime());
@@ -251,10 +252,10 @@ class UserInfo {
       let res = await this.fetch(opts);
       if (res?.code == '10000') {
         const postId = getPostId(res?.data);
-        $.log(`create article success${postId ? ` ${postId}` : ''}`);
+        $.log(`\u2705 \u521b\u5efa\u52a8\u6001: \u6210\u529f${postId ? ` ${postId}` : ''}`);
         return postId;
       } else {
-        $.log(`create article failed: ${res?.message}`);
+        $.log(`\u26d4\ufe0f \u521b\u5efa\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
@@ -270,21 +271,53 @@ class UserInfo {
         headers: Object.assign({}, this.headers, getSign('app')),
         dataType: "json",
         params: {
-          userId: this.userId
+          userId: this.userId,
+          page: 1,
+          pageSize: 10
         }
       }
       let res = await this.fetch(opts);
-      if (res?.code == '10000' && res?.message == '操作成功') {
+      if (res?.code == '10000') {
         const list = Array.isArray(res?.data) ? res.data : (res?.data?.records || res?.data?.list || res?.data?.rows || [])
-        const postId = getPostId(list?.[0] || res?.data)
-        $.log(`get article: ${postId}`);
+        let postId = getPostId(list?.[0] || res?.data)
+        if (!postId) postId = await this.getCommunityArticle()
+        $.log(`\u2705 \u83b7\u53d6\u52a8\u6001: ${postId}`);
         return postId
+      } else {
+        $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
       $.log(`⛔️ 获取动态列表失败! ${e}`);
     }
   }
+  async getCommunityArticle() {
+    try {
+      const opts = {
+        url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/community/qbTzInfoNewV2`,
+        type: "get",
+        headers: Object.assign({}, this.headers, getSign('app')),
+        dataType: "json",
+        params: {
+          page: 1,
+          pageSize: 20,
+          postModule: 2,
+          slidingType: 1
+        }
+      }
+      const res = await this.fetch(opts);
+      if (res?.code == '10000') {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        const mine = list.find(item => String(item.userId || item.createBy || item.uid || '') === String(this.userId));
+        return getPostId(mine || list[0]);
+      }
+      return null;
+    } catch (e) {
+      $.log(`\u26d4\ufe0f \u83b7\u53d6\u793e\u533a\u52a8\u6001\u5931\u8d25: ${e}`);
+      return null;
+    }
+  }
+
   // 点赞动态
   async thumbsUp(postId) {
     try {
@@ -299,7 +332,11 @@ class UserInfo {
         }
       }
       const res = await this.fetch(opts);
-      $.log(`✅ 点赞动态: ${postId}`)
+      if (res?.code == '10000') {
+        $.log(`\u2705 \u70b9\u8d5e\u52a8\u6001: ${postId}`)
+      } else {
+        $.log(`\u26d4\ufe0f \u70b9\u8d5e\u52a8\u6001\u5931\u8d25: ${res?.message}`);
+      }
     } catch (e) {
       this.ckStatus = false;
       $.log(`⛔️ 点赞动态失败! ${e}`);
@@ -316,14 +353,14 @@ class UserInfo {
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000') {
-        $.log(`share task: ${postId}`)
+        $.log(`\u2705 \u5206\u4eab\u52a8\u6001: ${postId}`)
       } else {
-        $.log(`share task failed! ${res?.message}`);
+        $.log(`\u26d4\ufe0f \u5206\u4eab\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
       await this.adjustByShare();
     } catch (e) {
       this.ckStatus = false;
-      $.log(`share task failed! ${e}`);
+      $.log(`\u26d4\ufe0f \u5206\u4eab\u52a8\u6001\u5931\u8d25: ${e}`);
     }
   }
   // ????
@@ -337,13 +374,13 @@ class UserInfo {
       }
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
-        $.log(`share integral: triggered`)
+        $.log(`\u2705 \u5206\u4eab\u79ef\u5206: \u5df2\u89e6\u53d1`)
       } else {
-        $.log(`share integral failed: ${res?.message}`);
+        $.log(`\u26d4\ufe0f \u5206\u4eab\u79ef\u5206\u5931\u8d25: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`share integral failed! ${e}`);
+      $.log(`\u26d4\ufe0f \u5206\u4eab\u79ef\u5206\u5931\u8d25: ${e}`);
     }
   }
   // ????
@@ -363,13 +400,13 @@ class UserInfo {
       }
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
-        $.log(`comment task: ${postId}`)
+        $.log(`\u2705 \u8bc4\u8bba\u52a8\u6001: ${postId}`)
       } else {
-        $.log(`comment task failed: ${res?.message}`);
+        $.log(`\u26d4\ufe0f \u8bc4\u8bba\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`comment task failed! ${e}`);
+      $.log(`\u26d4\ufe0f \u8bc4\u8bba\u52a8\u6001\u5931\u8d25: ${e}`);
     }
   }
   // 删除动态
@@ -383,13 +420,13 @@ class UserInfo {
       }
       const res = await this.fetch(opts);
       if (res?.code == '10000') {
-        $.log(`delete article: ${postId}`)
+        $.log(`\u2705 \u5220\u9664\u52a8\u6001: ${postId}`)
       } else {
-        $.log(`delete article failed: ${res?.message}`)
+        $.log(`\u26d4\ufe0f \u5220\u9664\u52a8\u6001\u5931\u8d25: ${res?.message}`)
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`delete article failed! ${e}`);
+      $.log(`\u26d4\ufe0f \u5220\u9664\u52a8\u6001\u5931\u8d25: ${e}`);
     }
   }
   
@@ -418,7 +455,14 @@ function getPostId(data) {
   if (!data) return null;
   if (typeof data === 'string' || typeof data === 'number') return String(data);
   if (Array.isArray(data)) return getPostId(data[0]);
-  return data.uuid || data.tuuid || data.postId || data.postid || data.articleId || data.id || data.dataId || null;
+  const direct = data.uuid || data.tuuid || data.postId || data.postid || data.articleId || data.articleID || data.id || data.dataId || data.tid;
+  if (direct) return String(direct);
+  for (const key of ['records', 'list', 'rows', 'data', 'result']) {
+    const value = data[key];
+    const postId = getPostId(value);
+    if (postId) return postId;
+  }
+  return null;
 }
 async function getCookie() {
   if ($request && $request.method === 'OPTIONS') return;
@@ -480,21 +524,26 @@ async function Request(o) {
     // post请求需要处理params参数(get不需要, env已经处理)
     const method = type ? type?.toLowerCase() : ('body' in o ? 'post' : 'get');
     const query = params ? $.queryStr(params) : '';
-    const url = u.concat(method === 'post' && query ? '?' + query : '');
+    const urlQuery = u.includes('?') ? u.split('?').slice(1).join('?') : '';
+    const signQuery = [urlQuery, query].filter(Boolean).join('&');
+    const url = u.concat(query ? (u.includes('?') ? '&' : '?') + query : '');
 
     const timeout = o.timeout ? ($.isSurge() ? o.timeout / 1e3 : o.timeout) : 1e4
     // 根据jsonType处理headers
     if (dataType === 'json') headers['Content-Type'] = 'application/json;charset=UTF-8';
     // post请求处理body
     const body = b && dataType == 'form' ? $.queryStr(b) : $.toStr(b);
-    if (headers['cfmoto-x-param'] && body && method !== 'get') {
-      const signature = `${body}${headers['cfmoto-x-param']}c5e0da7f4da28df805694ec3dd1fc6792e9df99d`;
-      const sign = md5(sha1(signature), 32).toString();
-      headers['cfmoto-x-sign'] = sign;
-      headers['signature'] = sign;
+    if (headers['cfmoto-x-param'] && headers['cfmoto-x-param'].includes('appId=S7qPWPU1')) {
+      const signPayload = body || signQuery;
+      if (signPayload) {
+        const signature = `${signPayload}${headers['cfmoto-x-param']}c5e0da7f4da28df805694ec3dd1fc6792e9df99d`;
+        const sign = md5(sha1(signature), 32).toString();
+        headers['cfmoto-x-sign'] = sign;
+        headers['signature'] = sign;
+      }
     }
     const httpMethod = ['get', 'post'].includes(method) ? method : 'post';
-    const request = { ...o, ...(o?.opts ? o.opts : {}), url, method, headers, ...(method !== 'get' && body && { body }), ...(method === 'get' && params && { params }), timeout: timeout }
+    const request = { ...o, ...(o?.opts ? o.opts : {}), url, method, headers, params: undefined, ...(method !== 'get' && body && { body }), timeout: timeout }
     const httpPromise = $.http[httpMethod.toLowerCase()](request)
       .then(response => resultType == 'data' ? ($.toObj(response.body) || response.body) : ($.toObj(response) || response))
       .catch(err => $.log(`❌请求发起失败！原因为：${err}`));
