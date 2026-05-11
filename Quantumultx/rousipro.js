@@ -4,7 +4,7 @@ new Env("Rousi Pro")
 cron 10 8 * * * rousipro.js
 
 [rewrite_local]
-^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats) url script-response-body rousipro.js
+^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats) url script-response-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
 
 [MITM]
 hostname = rousi.pro
