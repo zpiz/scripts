@@ -9,23 +9,27 @@ cron 10 8 * * * rousipro.js
 [MITM]
 hostname = rousi.pro
 
-说明：打开 rousi.pro 并进入个人/积分页面即可抓取 Authorization。
+QingLong env:
+- rousipro_data: Bearer token, or JSON array [{"token":"Bearer xxx","userName":"name"}], or multiple tokens separated by newline / @ / &
+- Optional: BARK_PUSH or BARK_URL for Bark notification; BARK_SERVER defaults to https://api.day.app
 ------------------------------------------
 */
 
 const $ = new Env("Rousi Pro");
 const ckName = "rousipro_data";
-const notify = $.isNode() ? require("./sendNotify") : "";
-
-let userCookie = $.getjson(ckName, []);
+const altCkNames = ["ROUSIPRO_DATA", "ROUSIPRO_TOKEN", "rousi_data", "rousi_token"];
+const isRequest = typeof $request !== "undefined";
 let notifyMsg = [];
 let successCount = 0;
+let userCookie = loadAccounts();
 
 class RousiPro {
   constructor(user, index) {
+    if (typeof user === "string") user = { token: user };
     this.index = index;
-    this.token = user.token || user;
-    this.userName = user.userName || user.username || `账号${index}`;
+    this.token = normalizeToken(user.token || user.Authorization || user.authorization || "");
+    this.userName = user.userName || user.username || decodeJwtName(this.token) || `Account${index}`;
+    this.userAgent = user.userAgent || user.ua || defaultUA();
     this.baseUrl = "https://rousi.pro";
     this.headers = {
       "Authorization": this.token,
@@ -33,12 +37,12 @@ class RousiPro {
       "Content-Type": "application/json",
       "Origin": "https://rousi.pro",
       "Referer": "https://rousi.pro/points",
-      "User-Agent": user.userAgent || "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1"
+      "User-Agent": this.userAgent
     };
   }
 
   log(message) {
-    $.log(`「${this.userName}」${message}`);
+    $.log(`\u300c${this.userName}\u300d${message}`);
   }
 
   async request(options) {
@@ -52,9 +56,10 @@ class RousiPro {
       body,
       timeout: 15000
     });
+    const statusCode = response.statusCode || response.status || 0;
     const data = $.toObj(response.body, response.body);
-    if (response.statusCode >= 400) {
-      const message = data?.message || response.body || `HTTP ${response.statusCode}`;
+    if (statusCode >= 400) {
+      const message = data?.message || response.body || `HTTP ${statusCode}`;
       throw new Error(message);
     }
     return data;
@@ -62,49 +67,57 @@ class RousiPro {
 
   async init() {
     const res = await this.request({ url: "/api/points/init" });
-    if (res?.code !== 0) throw new Error(res?.message || "初始化失败");
-    return res.data;
+    if (res?.code !== 0) throw new Error(res?.message || "init failed");
+    return res.data || {};
   }
 
   async signin() {
-    const res = await this.request({
-      url: "/api/points/attendance",
-      method: "POST",
-      body: { mode: "random" }
-    });
-    if (res?.code === 0) {
-      const data = res.data || {};
-      this.log(`✅ 签到成功: ${data.message || `获得 ${data.bonus || 0} 魔力值`}`);
-      return data;
+    try {
+      const res = await this.request({
+        url: "/api/points/attendance",
+        method: "POST",
+        body: { mode: "random" }
+      });
+      if (res?.code === 0) {
+        const data = res.data || {};
+        this.log(`\u2705 \u7b7e\u5230\u6210\u529f: ${data.message || `\u83b7\u5f97 ${data.bonus || 0} \u9b54\u529b\u503c`}`);
+        return data;
+      }
+      const message = res?.message || "signin failed";
+      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
+        this.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
+        return { already: true };
+      }
+      throw new Error(message);
+    } catch (e) {
+      const message = e?.message || String(e);
+      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
+        this.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
+        return { already: true };
+      }
+      throw e;
     }
-    const message = res?.message || "签到失败";
-    if (message.includes("今日已签到")) {
-      this.log("✅ 今日已签到");
-      return { already: true };
-    }
-    this.log(`⛔️ 签到失败: ${message}`);
-    throw new Error(message);
   }
 
   async balance() {
     const res = await this.request({ url: "/api/points/balance" });
-    if (res?.code !== 0) throw new Error(res?.message || "查询余额失败");
+    if (res?.code !== 0) throw new Error(res?.message || "balance query failed");
     return res.data || {};
   }
 
   async stats() {
     const res = await this.request({ url: "/api/points/attendance/stats" });
-    if (res?.code !== 0) throw new Error(res?.message || "查询签到统计失败");
+    if (res?.code !== 0) throw new Error(res?.message || "attendance stats query failed");
     return res.data || {};
   }
 
   async run() {
-    this.log("开始执行任务");
+    this.log("\u5f00\u59cb\u6267\u884c\u4efb\u52a1");
     const before = await this.init().catch(() => null);
     const today = before?.attendance?.server_today;
     const attendedDates = before?.attendance?.attended_dates || [];
     if (today && attendedDates.includes(today)) {
-      this.log(`✅ 今日已签到: 连续${before.attendance.current_streak || 0}天，累计${before.attendance.total_days || 0}天`);
+      this.log(`\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230: \u8fde\u7eed${before.attendance.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${before.attendance.total_days || 0}\u5929`);
     } else {
       await this.signin();
     }
@@ -113,57 +126,84 @@ class RousiPro {
       this.balance().catch(() => ({})),
       this.stats().catch(() => ({}))
     ]);
-    this.log(`当前魔力值: ${formatNumber(balance.karma)}，PT币: ${formatNumber(balance.credits)}，等级: ${balance.level ?? "-"}`);
-    this.log(`签到统计: 连续${stats.current_streak || 0}天，累计${stats.total_days || 0}天`);
-    notifyMsg.push(`「${this.userName}」执行成功，魔力值:${formatNumber(balance.karma)}，累计签到:${stats.total_days || 0}天`);
+    this.log(`\u5f53\u524d\u9b54\u529b\u503c: ${formatNumber(balance.karma)}\uff0cPT\u5e01: ${formatNumber(balance.credits)}\uff0c\u7b49\u7ea7: ${balance.level ?? "-"}`);
+    this.log(`\u7b7e\u5230\u7edf\u8ba1: \u8fde\u7eed${stats.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${stats.total_days || 0}\u5929`);
+    notifyMsg.push(`\u300c${this.userName}\u300d\u6267\u884c\u6210\u529f\uff0c\u9b54\u529b\u503c:${formatNumber(balance.karma)}\uff0c\u7d2f\u8ba1\u7b7e\u5230:${stats.total_days || 0}\u5929`);
     successCount++;
   }
 }
 
 async function getCookie() {
-  if (typeof $request === "undefined") return;
-  if ($request.method === "OPTIONS") return;
+  if (!isRequest || $request.method === "OPTIONS") return;
   const headers = lowerHeaders($request.headers || {});
-  const token = headers.authorization;
-  if (!token || !/^Bearer\s+/i.test(token)) {
-    $.msg($.name, "获取 Authorization 失败", "当前请求未携带 Bearer token");
+  const token = normalizeToken(headers.authorization || "");
+  if (!token) {
+    $.msg($.name, "\u83b7\u53d6 Authorization \u5931\u8d25", "\u5f53\u524d\u8bf7\u6c42\u672a\u643a\u5e26 Bearer token");
     return;
   }
   const body = $.toObj($response?.body, {});
   const stats = body?.data?.stats || body?.data || {};
-  const userName = stats.username || stats.nickname || decodeJwtName(token) || `账号${userCookie.length + 1}`;
-  const userAgent = headers["user-agent"];
+  const userName = stats.username || stats.nickname || decodeJwtName(token) || `Account${userCookie.length + 1}`;
+  const userAgent = headers["user-agent"] || defaultUA();
   const newData = { token, userName, userAgent };
   const index = userCookie.findIndex(item => item.token === token || item.userName === userName);
   if (index >= 0) userCookie[index] = newData;
   else userCookie.push(newData);
   $.setjson(userCookie, ckName);
-  $.msg($.name, "🎉 获取账号成功", `账号: ${userName}`);
+  $.msg($.name, "\ud83c\udf89 \u83b7\u53d6\u8d26\u53f7\u6210\u529f", `\u8d26\u53f7: ${userName}`);
 }
 
 async function main() {
-  if (!Array.isArray(userCookie)) userCookie = $.toObj(userCookie, []);
   if (!userCookie.length) {
-    notifyMsg.push("未找到账号，请先打开 rousi.pro 抓取 Authorization");
+    notifyMsg.push("\u672a\u627e\u5230\u8d26\u53f7\uff0c\u9752\u9f99\u8bf7\u914d\u7f6e\u73af\u5883\u53d8\u91cf rousipro_data");
     return;
   }
-  $.log(`共找到 ${userCookie.length} 个账号`);
+  $.log(`\u5171\u627e\u5230 ${userCookie.length} \u4e2a\u8d26\u53f7`);
   for (let i = 0; i < userCookie.length; i++) {
     const user = new RousiPro(userCookie[i], i + 1);
     try {
       await user.run();
     } catch (e) {
-      const message = e?.message || e;
-      if (String(message).includes("今日已签到")) {
-        user.log("✅ 今日已签到");
-        notifyMsg.push(`「${user.userName}」今日已签到`);
+      const message = e?.message || String(e);
+      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
+        user.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
+        notifyMsg.push(`\u300c${user.userName}\u300d\u4eca\u65e5\u5df2\u7b7e\u5230`);
+        successCount++;
       } else {
-        user.log(`⛔️ 执行失败: ${message}`);
-        notifyMsg.push(`「${user.userName}」执行失败: ${message}`);
+        user.log(`\u26d4\ufe0f \u6267\u884c\u5931\u8d25: ${message}`);
+        notifyMsg.push(`\u300c${user.userName}\u300d\u6267\u884c\u5931\u8d25: ${message}`);
       }
     }
     if (i < userCookie.length - 1) await $.wait(randomInt(1000, 3000));
   }
+}
+
+function loadAccounts() {
+  let raw = "";
+  if ($.isNode()) {
+    raw = [ckName, ...altCkNames].map(name => process.env[name]).find(Boolean) || "";
+  } else {
+    raw = $.getdata(ckName) || "";
+  }
+  if (!raw) return [];
+  const parsed = $.toObj(raw, null);
+  if (Array.isArray(parsed)) return parsed.map(normalizeAccount).filter(Boolean);
+  if (parsed && typeof parsed === "object") return [normalizeAccount(parsed)].filter(Boolean);
+  return raw.split(/\n|@|&/).map(item => item.trim()).filter(Boolean).map(token => normalizeAccount({ token }));
+}
+
+function normalizeAccount(account) {
+  if (!account) return null;
+  if (typeof account === "string") return { token: normalizeToken(account) };
+  const token = normalizeToken(account.token || account.Authorization || account.authorization || "");
+  if (!token) return null;
+  return { ...account, token, userName: account.userName || account.username || decodeJwtName(token) };
+}
+
+function normalizeToken(token) {
+  token = String(token || "").trim();
+  if (!token) return "";
+  return /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`;
 }
 
 function formatNumber(value) {
@@ -191,29 +231,123 @@ function atobCompat(str) {
   return Buffer.from(str, "base64").toString("utf8");
 }
 
+function defaultUA() {
+  return "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1";
+}
+
 function randomInt(min, max) {
   return Math.round(Math.random() * (max - min) + min);
 }
 
 !(async () => {
-  if (typeof $request !== "undefined") await getCookie();
+  if (isRequest) await getCookie();
   else await main();
 })()
   .catch(e => {
-    const message = e?.message || e;
-    $.log(`脚本异常: ${message}`);
-    notifyMsg.push(`脚本异常: ${message}`);
+    const message = e?.message || String(e);
+    $.log(`\u811a\u672c\u5f02\u5e38: ${message}`);
+    notifyMsg.push(`\u811a\u672c\u5f02\u5e38: ${message}`);
   })
   .finally(async () => {
-    if (typeof $request === "undefined" && notifyMsg.length) {
-      await sendNotify($.name, `共${userCookie.length || 0}个账号，成功${successCount}个`, notifyMsg.join("\n"));
+    if (!isRequest && notifyMsg.length) {
+      await sendNotify($.name, `\u5171${userCookie.length || 0}\u4e2a\u8d26\u53f7\uff0c\u6210\u529f${successCount}\u4e2a`, notifyMsg.join("\n"));
     }
     $.done();
   });
 
 async function sendNotify(title, subtitle, message) {
-  if ($.isNode() && notify) return notify.sendNotify(title, `${subtitle}\n${message}`);
+  const content = subtitle ? `${subtitle}\n${message || ""}` : (message || "");
+  if ($.isNode()) {
+    loadQingLongNotifyConfig();
+    try {
+      const qlNotify = require("./sendNotify");
+      if (qlNotify?.sendNotify) return await qlNotify.sendNotify(title, content);
+    } catch (e) {
+      $.log(`QingLong sendNotify unavailable: ${e?.message || e}`);
+    }
+    const barkSent = await sendBark(title, content).catch(e => {
+      $.log(`Bark push failed: ${e?.message || e}`);
+      return false;
+    });
+    if (barkSent) return;
+  }
   $.msg(title, subtitle, message);
+}
+
+function loadQingLongNotifyConfig() {
+  if (!$.isNode()) return;
+  try {
+    const fs = require("fs");
+    const paths = [
+      process.env.QL_DIR ? `${process.env.QL_DIR}/config/config.sh` : "",
+      "/ql/data/config/config.sh",
+      "/ql/config/config.sh",
+      "/ql/config/config.sh.sample"
+    ].filter(Boolean);
+    for (const file of paths) {
+      if (!fs.existsSync(file)) continue;
+      const content = fs.readFileSync(file, "utf8");
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (!match) continue;
+        const key = match[1];
+        if (!/^(BARK|PUSH_KEY|PUSH_PLUS|TG_|DD_|QYWX|FSKEY|GOBOT|GOTIFY|IGOT|PUSHDEER|AIBOTK|SMTP|PUSHME)/.test(key)) continue;
+        let value = match[2].trim();
+        value = value.replace(/^['"]|['"]$/g, "");
+        value = value.replace(/\\n/g, "\n");
+        if (value && !process.env[key]) process.env[key] = value;
+      }
+      break;
+    }
+  } catch (e) {
+    $.log(`Load QingLong notify config failed: ${e?.message || e}`);
+  }
+}
+
+async function sendBark(title, body) {
+  if (!$.isNode()) return false;
+  const barkPush = process.env.BARK_PUSH || process.env.BARK_URL || "";
+  if (!barkPush) return false;
+  let url;
+  if (/^https?:\/\//i.test(barkPush)) {
+    url = barkPush.replace(/\/$/, "");
+  } else {
+    const server = (process.env.BARK_SERVER || "https://api.day.app").replace(/\/$/, "");
+    url = `${server}/${barkPush}`;
+  }
+  const params = new URLSearchParams();
+  params.set("title", title);
+  params.set("body", body);
+  if (process.env.BARK_GROUP) params.set("group", process.env.BARK_GROUP);
+  if (process.env.BARK_SOUND) params.set("sound", process.env.BARK_SOUND);
+  const resp = await httpRequest({ url: `${url}?${params.toString()}`, method: "GET", timeout: 15000 });
+  return (resp.statusCode || resp.status || 0) < 400;
+}
+
+async function httpRequest(options) {
+  if (typeof fetch === "function") {
+    const res = await fetch(options.url, {
+      method: options.method || "GET",
+      headers: options.headers,
+      body: options.body,
+      signal: AbortSignal.timeout ? AbortSignal.timeout(options.timeout || 15000) : undefined
+    });
+    return { statusCode: res.status, headers: Object.fromEntries(res.headers.entries()), body: await res.text() };
+  }
+  const mod = options.url.startsWith("https") ? require("https") : require("http");
+  return new Promise((resolve, reject) => {
+    const req = mod.request(options.url, { method: options.method || "GET", headers: options.headers || {}, timeout: options.timeout || 15000 }, res => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => resolve({ statusCode: res.statusCode, headers: res.headers, body }));
+    });
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("request timeout")));
+    if (options.body) req.write(options.body);
+    req.end();
+  });
 }
 
 function Env(name) {
@@ -223,7 +357,7 @@ function Env(name) {
       this.startTime = Date.now();
       this.data = null;
       this.dataFile = "box.dat";
-      this.log(`🔔${this.name}, 开始!`);
+      this.log(`\ud83d\udd14${this.name}, \u5f00\u59cb!`);
     }
     isNode() { return typeof module !== "undefined" && !!module.exports; }
     isQuanX() { return typeof $task !== "undefined"; }
@@ -237,6 +371,8 @@ function Env(name) {
     setjson(value, key) { return this.setdata(this.toStr(value), key); }
     getdata(key) {
       if (this.isNode()) {
+        const envValue = [key, key.toUpperCase(), ...altCkNames].map(name => process.env[name]).find(Boolean);
+        if (envValue) return envValue;
         this.fs = this.fs || require("fs");
         this.path = this.path || require("path");
         const file = this.path.resolve(this.dataFile);
@@ -277,14 +413,7 @@ function Env(name) {
           const method = (options.method || "GET").toLowerCase();
           $httpClient[method](options, (err, resp, body) => err ? reject(err) : resolve({ ...resp, body }));
         } else if (this.isNode()) {
-          const got = require("got");
-          got(options.url, {
-            method: options.method,
-            headers: options.headers,
-            body: options.body,
-            timeout: { request: options.timeout || 15000 },
-            throwHttpErrors: false
-          }).then(resp => resolve({ statusCode: resp.statusCode, headers: resp.headers, body: resp.body }), reject);
+          httpRequest(options).then(resolve, reject);
         } else reject(new Error("Unsupported runtime"));
       });
     }
@@ -295,7 +424,7 @@ function Env(name) {
       else this.log(`${title}\n${subtitle}\n${message}`);
     }
     done(value = {}) {
-      this.log(`🔔${this.name}, 结束! 🕛 ${(Date.now() - this.startTime) / 1000} 秒`);
+      this.log(`\ud83d\udd14${this.name}, \u7ed3\u675f! \ud83d\udd5b ${(Date.now() - this.startTime) / 1000} \u79d2`);
       if (typeof $done !== "undefined") $done(value);
     }
   }(name);
