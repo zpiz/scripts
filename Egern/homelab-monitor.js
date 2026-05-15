@@ -1,3 +1,12 @@
+/*
+------------------------------------------
+@Date: 2026.03.15
+@Description: NAS状态监控
+@Author: zpiz
+------------------------------------------
+@Description:
+*/
+
 export default async function(ctx) {
   // 从环境变量获取探测地址，如果没填则提供默认提示占位符
   const nasUrl = ctx.env.NAS_URL || "https://127.0.0.1";
