@@ -1,3 +1,12 @@
+/*
+------------------------------------------
+@Date: 2026.03.15
+@Description: 汇率查询脚本
+@Author: zpiz
+------------------------------------------
+@Description:
+*/
+
 export default async function(ctx) {
   const currentUrl = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json";
 
