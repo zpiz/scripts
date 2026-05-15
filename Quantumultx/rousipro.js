@@ -1,5 +1,11 @@
 /*
 ------------------------------------------
+@Date: 2026.05.15
+@Description: PT-rousi签到
+@Author: zpiz
+------------------------------------------
+@Description:
+脚本兼容：Surge、QuantumultX、Loon、Shadowrocket，青龙
 new Env("Rousi Pro")
 cron 10 8 * * * rousipro.js
 
