@@ -80,20 +80,21 @@ class RousiPro {
       });
       if (res?.code === 0) {
         const data = res.data || {};
-        this.log(`\u2705 \u7b7e\u5230\u6210\u529f: ${data.message || `\u83b7\u5f97 ${data.bonus || 0} \u9b54\u529b\u503c`}`);
-        return data;
+        const bonus = extractSigninBonus(data, res);
+        this.log(`\u2705 \u7b7e\u5230\u6210\u529f\uff0c\u672c\u6b21\u7b7e\u5230\u83b7\u5f97 ${formatNumber(bonus)} \u9b54\u529b\u503c`);
+        return { ...data, bonus };
       }
       const message = res?.message || "signin failed";
       if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
-        this.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
-        return { already: true };
+        this.log(`\u26d4\ufe0f ${message}`);
+        return { already: true, message };
       }
       throw new Error(message);
     } catch (e) {
       const message = e?.message || String(e);
       if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
-        this.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
-        return { already: true };
+        this.log(`\u26d4\ufe0f ${message}`);
+        return { already: true, message };
       }
       throw e;
     }
@@ -112,14 +113,20 @@ class RousiPro {
   }
 
   async run() {
-    this.log("\u5f00\u59cb\u6267\u884c\u4efb\u52a1");
     const before = await this.init().catch(() => null);
     const today = before?.attendance?.server_today;
     const attendedDates = before?.attendance?.attended_dates || [];
     if (today && attendedDates.includes(today)) {
-      this.log(`\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230: \u8fde\u7eed${before.attendance.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${before.attendance.total_days || 0}\u5929`);
-    } else {
-      await this.signin();
+      const message = "\u4eca\u65e5\u5df2\u7b7e\u5230";
+      this.log(`\u26d4\ufe0f ${message}`);
+      notifyMsg.push(`\u300c${this.userName}\u300d${message}`);
+      return;
+    }
+
+    const signin = await this.signin();
+    if (signin?.already) {
+      notifyMsg.push(`\u300c${this.userName}\u300d${signin.message || "\u4eca\u65e5\u5df2\u7b7e\u5230"}`);
+      return;
     }
 
     const [balance, stats] = await Promise.all([
@@ -128,7 +135,7 @@ class RousiPro {
     ]);
     this.log(`\u5f53\u524d\u9b54\u529b\u503c: ${formatNumber(balance.karma)}\uff0cPT\u5e01: ${formatNumber(balance.credits)}\uff0c\u7b49\u7ea7: ${balance.level ?? "-"}`);
     this.log(`\u7b7e\u5230\u7edf\u8ba1: \u8fde\u7eed${stats.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${stats.total_days || 0}\u5929`);
-    notifyMsg.push(`\u300c${this.userName}\u300d\u6267\u884c\u6210\u529f\uff0c\u9b54\u529b\u503c:${formatNumber(balance.karma)}\uff0c\u7d2f\u8ba1\u7b7e\u5230:${stats.total_days || 0}\u5929`);
+    notifyMsg.push(`\u300c${this.userName}\u300d\u7b7e\u5230\u6210\u529f\uff0c\u672c\u6b21\u83b7\u5f97:${formatNumber(signin.bonus)}\u9b54\u529b\u503c\uff0c\u5f53\u524d\u9b54\u529b\u503c:${formatNumber(balance.karma)}\uff0c\u7d2f\u8ba1\u7b7e\u5230:${stats.total_days || 0}\u5929`);
     successCount++;
   }
 }
@@ -166,9 +173,8 @@ async function main() {
     } catch (e) {
       const message = e?.message || String(e);
       if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
-        user.log("\u2705 \u4eca\u65e5\u5df2\u7b7e\u5230");
-        notifyMsg.push(`\u300c${user.userName}\u300d\u4eca\u65e5\u5df2\u7b7e\u5230`);
-        successCount++;
+        user.log(`\u26d4\ufe0f ${message}`);
+        notifyMsg.push(`\u300c${user.userName}\u300d${message}`);
       } else {
         user.log(`\u26d4\ufe0f \u6267\u884c\u5931\u8d25: ${message}`);
         notifyMsg.push(`\u300c${user.userName}\u300d\u6267\u884c\u5931\u8d25: ${message}`);
@@ -212,6 +218,28 @@ function formatNumber(value) {
   return Number.isFinite(num) ? num.toFixed(2).replace(/\.00$/, "") : String(value);
 }
 
+function extractSigninBonus(data, res) {
+  const candidates = [
+    data?.bonus,
+    data?.karma,
+    data?.points,
+    data?.reward,
+    data?.amount,
+    data?.value,
+    data?.delta,
+    data?.gained,
+    data?.gain,
+    data?.attendance_reward,
+    data?.reward_points,
+    res?.bonus,
+    res?.points
+  ];
+  const value = candidates.find(item => item !== undefined && item !== null && item !== "");
+  if (value !== undefined) return value;
+  const message = [data?.message, res?.message].filter(Boolean).join(" ");
+  const match = message.match(/(?:\u83b7\u5f97|\u5956\u52b1|\u589e\u52a0)\s*([+-]?\d+(?:\.\d+)?)/) || message.match(/([+-]?\d+(?:\.\d+)?)\s*(?:\u9b54\u529b|\u9b54\u529b\u503c|karma|points)/i);
+  return match ? match[1] : 0;
+}
 function lowerHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
 }
