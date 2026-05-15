@@ -1,3 +1,12 @@
+/*
+------------------------------------------
+@Date: 2026.03.15
+@Description: qb状态监控
+@Author: zpiz
+------------------------------------------
+@Description:
+*/
+
 export default async function(ctx) {
   const qbUrl = (ctx.env.QB_URL || "").replace(/\/$/, "");
   const qbUser = ctx.env.QB_URL ? (ctx.env.QB_USER || "") : "";
