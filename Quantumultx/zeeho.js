@@ -1,6 +1,7 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
+@Date: 2026-05-11 19:10 通知改为聚合通知
 @Date: 2026-05-11 19:10 在原作者基础上修复发帖等任务
 @Date: 2024-09-18 09:15
 
@@ -580,7 +581,12 @@ function debug(t, l = 'debug') {
 };
 //对多账号通知进行兼容
 async function SendMsgList(l) {
-  await Promise.allSettled(l?.map(u => SendMsg(u.message.join('\n'), u.avatar)));
+  const msg = (l || []).map(u => {
+    const message = Array.isArray(u.message) ? u.message.filter(Boolean).join('\n') : u.message;
+    return message ? `账号${u.id}\n${message}` : '';
+  }).filter(Boolean).join('\n\n');
+  const catchMsg = $.notifyMsg.filter(Boolean).join('\n');
+  await SendMsg([msg, catchMsg].filter(Boolean).join('\n\n'), l?.[0]?.avatar);
 };
 //账号通知
 async function SendMsg(n, o) {
