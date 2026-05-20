@@ -1,7 +1,7 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
-@Date: 2026-05-11 19:10 通知改为聚合通知
+@Date: 2026-05-20 22:42 改为聚合通知
 @Date: 2026-05-11 19:10 在原作者基础上修复发帖等任务
 @Date: 2024-09-18 09:15
 
@@ -55,6 +55,8 @@ $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'fal
 $.notifyList = [];
 // 为通知准备的空数组
 $.notifyMsg = [];
+// 成功账号数
+$.succCount = 0;
 
 //---------------------- 自定义变量区域 -----------------------------------
 //脚本入口函数main()
@@ -84,6 +86,9 @@ async function main() {
         postId = postId || await user.getArticles()
         if (!postId) {
           $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: \u672a\u83b7\u53d6\u5230\u52a8\u6001ID\uff0c\u8df3\u8fc7\u4e92\u52a8\u4efb\u52a1`);
+          $.notifyMsg.push(`[${user.userName || user.index}] 积分:获取动态失败，跳过互动任务`);
+          $.notifyList.push({ "id": user.index, "userName": user.userName, "avatar": user.avatar, "message": $.notifyMsg });
+          $.notifyMsg = [];
           continue;
         }
         await $.wait(user.getRandomTime());
@@ -101,17 +106,19 @@ async function main() {
         await $.wait(user.getRandomTime());
         //查询待领取积分
         const score = await user.getSignInfo();
-        $.title = `本次运行共获得${(integral + integralScore + 3)}积分`;
-        DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
+        const gain = (integral || 0) + (integralScore || 0) + 3;
+        DoubleLog(`[${user.userName || user.index}] 积分:${score}${gain ? ` 本次+${gain}` : ""} 累计签到:${count}天`);
+        $.succCount++;
       } else {
         //将ck过期消息存入消息数组
-        $.notifyMsg.push(`❌账号${user.userName || user.index} >> Check ck error!`)
+        $.notifyMsg.push(`[${user.userName || user.index}] 积分:ck已失效，用户需要去登录`)
       }
       //账号通知
-      $.notifyList.push({ "id": user.index, "avatar": user.avatar, "message": $.notifyMsg });
+      $.notifyList.push({ "id": user.index, "userName": user.userName, "avatar": user.avatar, "message": $.notifyMsg });
       //清空数组
       $.notifyMsg = [];
     }
+    $.title = `共${userCount}个账号,成功${$.succCount}个,失败${userCount - $.succCount}个`;
   } catch (e) {
     $.log(`⛔️ main run error => ${e}`);
     throw new Error(`⛔️ main run error => ${e}`);
@@ -583,9 +590,11 @@ function debug(t, l = 'debug') {
 async function SendMsgList(l) {
   const msg = (l || []).map(u => {
     const message = Array.isArray(u.message) ? u.message.filter(Boolean).join('\n') : u.message;
-    return message ? `账号${u.id}\n${message}` : '';
+    return message ? `${message}` : '';
   }).filter(Boolean).join('\n\n');
   const catchMsg = $.notifyMsg.filter(Boolean).join('\n');
+  const total = userCount || l?.length || 0;
+  if (total) $.title = `共${total}个账号,成功${$.succCount || 0}个,失败${total - ($.succCount || 0)}个`;
   await SendMsg([msg, catchMsg].filter(Boolean).join('\n\n'), l?.[0]?.avatar);
 };
 //账号通知
