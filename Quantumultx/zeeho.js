@@ -1,8 +1,6 @@
 /*
 new Env('极核-ZEEHO');
 @Author: Leiyiyan
-@Date: 2026-05-20 22:42 改为聚合通知
-@Date: 2026-05-11 19:10 在原作者基础上修复发帖等任务
 @Date: 2024-09-18 09:15
 
 @Description:
@@ -51,12 +49,11 @@ let userCount = 0;
 
 // 调试
 $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'false';
-// 为多用户准备的通知数组
-$.notifyList = [];
 // 为通知准备的空数组
 $.notifyMsg = [];
-// 成功账号数
+// 成功个数与本次积分汇总
 $.succCount = 0;
+$.totalIntegral = 0;
 
 //---------------------- 自定义变量区域 -----------------------------------
 //脚本入口函数main()
@@ -86,9 +83,7 @@ async function main() {
         postId = postId || await user.getArticles()
         if (!postId) {
           $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: \u672a\u83b7\u53d6\u5230\u52a8\u6001ID\uff0c\u8df3\u8fc7\u4e92\u52a8\u4efb\u52a1`);
-          $.notifyMsg.push(`[${user.userName || user.index}] 积分:获取动态失败，跳过互动任务`);
-          $.notifyList.push({ "id": user.index, "userName": user.userName, "avatar": user.avatar, "message": $.notifyMsg });
-          $.notifyMsg = [];
+          $.notifyMsg.push(`「${user.userName || user.index}」获取动态失败，跳过互动任务`);
           continue;
         }
         await $.wait(user.getRandomTime());
@@ -106,19 +101,15 @@ async function main() {
         await $.wait(user.getRandomTime());
         //查询待领取积分
         const score = await user.getSignInfo();
-        const gain = (integral || 0) + (integralScore || 0) + 3;
-        DoubleLog(`[${user.userName || user.index}] 积分:${score}${gain ? ` 本次+${gain}` : ""} 累计签到:${count}天`);
+        $.totalIntegral += Number(integral || 0) + Number(integralScore || 0) + 3;
         $.succCount++;
+        DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
       } else {
         //将ck过期消息存入消息数组
-        $.notifyMsg.push(`[${user.userName || user.index}] 积分:ck已失效，用户需要去登录`)
+        $.notifyMsg.push(`❌账号${user.userName || user.index} >> Check ck error!`)
       }
-      //账号通知
-      $.notifyList.push({ "id": user.index, "userName": user.userName, "avatar": user.avatar, "message": $.notifyMsg });
-      //清空数组
-      $.notifyMsg = [];
     }
-    $.title = `共${userCount}个账号,成功${$.succCount}个,失败${userCount - $.succCount}个`;
+    $.title = `共${userList.length}个账号,成功${$.succCount}个,失败${userList.length - $.succCount}个,本次获得${$.totalIntegral}积分`;
   } catch (e) {
     $.log(`⛔️ main run error => ${e}`);
     throw new Error(`⛔️ main run error => ${e}`);
@@ -190,7 +181,7 @@ class UserInfo {
       $.log(`⛔️ 签到失败! ${e}`);
     }
   }
-  // 查询签到记录
+      // 查询签到记录
   async getSignRecord() {
     try {
       const params = {
@@ -206,9 +197,9 @@ class UserInfo {
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000' && res?.message == '操作成功') {
-        const count = res?.data?.signCount
-        const prize = res?.data?.prizes
-        $.log(prize == 3 ? `✅ 满足盲盒抽奖条件` : `✅ 未满足盲盒抽奖条件`)
+        const count = res?.data?.continueDays || res?.data?.signCount || res?.data?.days || 0;
+        const prize = 3; 
+        $.log(`✅ 查询签到状态: 已连续签到 ${count} 天`);
         return {count, prize}
       }
       return null
@@ -217,34 +208,38 @@ class UserInfo {
       $.log(`⛔️ 查询签到记录失败! ${e}`);
     }
   }
-  // 开启盲盒
+   // 开启盲盒
   async lottery() {
     try {
+      const date = new Date();
+      const today = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
       const params = {
-        boxType: 0,
-        server_name: 'SMART'
+        supplementDate: today 
       }
       const opts = {
-        url: "https://h5.zeehoev.com/cfmotoservermine/signin/lottery",
+        url: "https://h5.zeehoev.com/cfmotoservermine/signin/supplementPrize", 
         type: "get",
         headers: Object.assign({}, this.headers, getSign('h5', params)),
         params,
         dataType: "json"
       }
       let res = await this.fetch(opts);
-      if (res?.code == '10000') {
-        const integralScore = res?.data?.integralScore
-        const prizesName = res?.data?.prizesName
-        $.log(`✅ 盲盒抽奖获得: ${prizesName}`);
-        return integralScore
-      }else{
-        $.log(`⛔️ 盲盒抽奖失败! ${res?.message}`);
+      if (res?.code == '10000' && res?.data) {
+        const integralScore = res.data.integral || 0;
+        const prizesName = res.data.prizesName || `${integralScore}积分`;
+        $.log(`🎁 盲盒抽奖结果: 恭喜获得 ${prizesName}！`);
+        return Number(integralScore);
+      } else {
+        $.log(`⛔️未满足盲盒条件 : ${res?.message || '未知'}`);
+        return 0;
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`⛔️ 盲盒抽奖失败! ${e}`);
+      $.log(`⛔️ 盲盒抽奖请求失败! ${e}`);
+      return 0;
     }
   }
+  
   // 创建动态
   async createArticle() {
     try {
@@ -586,17 +581,6 @@ function debug(t, l = 'debug') {
     $.log(`\n-----------${l}------------\n`)
   }
 };
-//对多账号通知进行兼容
-async function SendMsgList(l) {
-  const msg = (l || []).map(u => {
-    const message = Array.isArray(u.message) ? u.message.filter(Boolean).join('\n') : u.message;
-    return message ? `${message}` : '';
-  }).filter(Boolean).join('\n\n');
-  const catchMsg = $.notifyMsg.filter(Boolean).join('\n');
-  const total = userCount || l?.length || 0;
-  if (total) $.title = `共${total}个账号,成功${$.succCount || 0}个,失败${total - ($.succCount || 0)}个`;
-  await SendMsg([msg, catchMsg].filter(Boolean).join('\n\n'), l?.[0]?.avatar);
-};
 //账号通知
 async function SendMsg(n, o) {
   n && (0 < Notify ? $.isNode() ? await notify.sendNotify($.name, n) : $.msg($.name, $.title || "", n, {
@@ -622,7 +606,7 @@ function ObjectKeys2LowerCase(obj) { return Object.fromEntries(Object.entries(ob
 })()
   .catch(e => $.notifyMsg.push(e.message || e))
   .finally(async () => {
-    await SendMsgList($.notifyList);
+    await SendMsg($.notifyMsg.join('\n'));
     $.done({ ok: 1 });
   });
 /** ---------------------------------固定不动区域----------------------------------------- */
