@@ -49,11 +49,10 @@ let userCount = 0;
 
 // 调试
 $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'false';
+// 为多用户准备的通知数组
+$.notifyList = [];
 // 为通知准备的空数组
 $.notifyMsg = [];
-// 成功个数与本次积分汇总
-$.succCount = 0;
-$.totalIntegral = 0;
 
 //---------------------- 自定义变量区域 -----------------------------------
 //脚本入口函数main()
@@ -69,13 +68,22 @@ async function main() {
       if (user.ckStatus) {
         await $.wait(user.getRandomTime());
         // 查看签到记录
-        const {count = 0, prize = 0} = await user.getSignRecord() || {}
-        await $.wait(user.getRandomTime());
-        if(prize == 3) {
-          // 盲盒抽奖
-          integralScore = await user.lottery()
-          await $.wait(user.getRandomTime());
-        }
+        const {
+  count = 0,
+  prize = 0,
+  prizes = 0
+} = await user.getSignRecord() || {}
+
+await $.wait(user.getRandomTime());
+
+if(prizes >= 30) {
+
+  // 盲盒抽奖
+  integralScore = await user.lottery()
+
+  await $.wait(user.getRandomTime());
+
+}
         // 创建动态
         let postId = await user.createArticle()
         await $.wait(user.getRandomTime());
@@ -83,7 +91,6 @@ async function main() {
         postId = postId || await user.getArticles()
         if (!postId) {
           $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: \u672a\u83b7\u53d6\u5230\u52a8\u6001ID\uff0c\u8df3\u8fc7\u4e92\u52a8\u4efb\u52a1`);
-          $.notifyMsg.push(`「${user.userName || user.index}」获取动态失败，跳过互动任务`);
           continue;
         }
         await $.wait(user.getRandomTime());
@@ -101,15 +108,17 @@ async function main() {
         await $.wait(user.getRandomTime());
         //查询待领取积分
         const score = await user.getSignInfo();
-        $.totalIntegral += Number(integral || 0) + Number(integralScore || 0) + 3;
-        $.succCount++;
+        $.title = `本次运行共获得${(integral + integralScore + 3)}积分`;
         DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
       } else {
         //将ck过期消息存入消息数组
         $.notifyMsg.push(`❌账号${user.userName || user.index} >> Check ck error!`)
       }
+      //账号通知
+      $.notifyList.push({ "id": user.index, "avatar": user.avatar, "message": $.notifyMsg });
+      //清空数组
+      $.notifyMsg = [];
     }
-    $.title = `共${userList.length}个账号,成功${$.succCount}个,失败${userList.length - $.succCount}个,本次获得${$.totalIntegral}积分`;
   } catch (e) {
     $.log(`⛔️ main run error => ${e}`);
     throw new Error(`⛔️ main run error => ${e}`);
@@ -181,61 +190,116 @@ class UserInfo {
       $.log(`⛔️ 签到失败! ${e}`);
     }
   }
-      // 查询签到记录
+    // 查询签到记录
+
+
   async getSignRecord() {
-    try {
-      const params = {
-        month: new Date().getFullYear() + '-' + (new Date().getMonth() + 1),
-        server_name: 'SMART'
+
+  try {
+
+    const params = {
+      month: new Date().getFullYear() + '-' + (new Date().getMonth() + 1),
+      server_name: 'SMART'
+    };
+
+    const opts = {
+      url: "https://h5.zeehoev.com/cfmotoservermine/signin/info",
+      type: "get",
+      headers: Object.assign({}, this.headers, getSign('h5', params)),
+      params,
+      dataType: "json"
+    };
+
+    let res = await this.fetch(opts);
+
+    if (res?.code == '10000' && res?.message == '操作成功') {
+
+      const list = res?.data?.nowSignDetailVos || [];
+
+      // 今日日期
+      const today = new Date().toISOString().slice(0, 10);
+
+      // 找到今天索引
+      const todayIndex = list.findIndex(
+        item => item.createDate === today
+      );
+
+      // 连续签到天数
+      let count = 0;
+
+      // 从今天开始往前统计
+      for (let i = todayIndex; i >= 0; i--) {
+
+        const status = list[i]?.signStatue;
+
+        // 3=已签到 5=补签
+        if (status == 3 || status == 5) {
+          count++;
+        } else {
+          break;
+        }
       }
-      const opts = {
-        url: "https://h5.zeehoev.com/cfmotoservermine/signin/info",
-        type: "get",
-        headers: Object.assign({}, this.headers, getSign('h5', params)),
-        params,
-        dataType: "json"
-      }
-      let res = await this.fetch(opts);
-      if (res?.code == '10000' && res?.message == '操作成功') {
-        const count = res?.data?.continueDays || res?.data?.signCount || res?.data?.days || 0;
-        const prize = 3; 
-        $.log(`✅ 查询签到状态: 已连续签到 ${count} 天`);
-        return {count, prize}
-      }
-      return null
-    } catch (e) {
-      this.ckStatus = false;
-      $.log(`⛔️ 查询签到记录失败! ${e}`);
+
+      // 今日积分
+      const prize = res?.data?.integral || 0;
+
+      // 连签累计奖励次数
+      const prizes = res?.data?.prizes || 0;
+
+      $.log(
+        `✅ 连续签到${count}天 | 今日积分${prize} | 连签奖励累计${prizes}`
+      );
+
+      return {
+        count,
+        prize,
+        prizes
+      };
+
     }
+
+    return null;
+
+  } catch (e) {
+
+    this.ckStatus = false;
+    $.log(`⛔️ 查询签到记录失败! ${e}`);
+
   }
-   // 开启盲盒
+
+}
+    // 开启盲盒
+
+
   async lottery() {
     try {
       const date = new Date();
       const today = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+
       const params = {
-        supplementDate: today 
+        supplementDate: today
       }
       const opts = {
-        url: "https://h5.zeehoev.com/cfmotoservermine/signin/supplementPrize", 
+        url: "https://h5.zeehoev.com/cfmotoservermine/signin/supplementPrize",
         type: "get",
         headers: Object.assign({}, this.headers, getSign('h5', params)),
         params,
         dataType: "json"
       }
       let res = await this.fetch(opts);
-      if (res?.code == '10000' && res?.data) {
-        const integralScore = res.data.integral || 0;
-        const prizesName = res.data.prizesName || `${integralScore}积分`;
-        $.log(`🎁 盲盒抽奖结果: 恭喜获得 ${prizesName}！`);
+      if (res?.code == '10000') {
+
+        const integralScore = res?.data?.integral || res?.data?.integralScore || 0;
+        const prizesName = res?.data?.prizesName || (integralScore + '积分');
+        $.log(`✅ 盲盒抽奖获得: ${prizesName}`);
         return Number(integralScore);
       } else {
-        $.log(`⛔️未满足盲盒条件 : ${res?.message || '未知'}`);
+        $.log(`⚠️ 盲盒抽奖(今日可能无盲盒): ${res?.message}`);
         return 0;
       }
     } catch (e) {
       this.ckStatus = false;
-      $.log(`⛔️ 盲盒抽奖请求失败! ${e}`);
+      $.log(`⛔️ 盲盒抽奖发起失败! ${e}`);
       return 0;
     }
   }
@@ -581,6 +645,14 @@ function debug(t, l = 'debug') {
     $.log(`\n-----------${l}------------\n`)
   }
 };
+//对多账号通知进行兼容
+async function SendMsgList(l) {
+  const msg = [
+    ...(l || []).map(u => u?.message?.join('\n')).filter(Boolean),
+    ...($.notifyMsg || []).filter(Boolean)
+  ].join('\n');
+  await SendMsg(msg);
+};
 //账号通知
 async function SendMsg(n, o) {
   n && (0 < Notify ? $.isNode() ? await notify.sendNotify($.name, n) : $.msg($.name, $.title || "", n, {
@@ -606,7 +678,7 @@ function ObjectKeys2LowerCase(obj) { return Object.fromEntries(Object.entries(ob
 })()
   .catch(e => $.notifyMsg.push(e.message || e))
   .finally(async () => {
-    await SendMsg($.notifyMsg.join('\n'));
+    await SendMsgList($.notifyList);
     $.done({ ok: 1 });
   });
 /** ---------------------------------固定不动区域----------------------------------------- */
