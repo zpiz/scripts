@@ -244,7 +244,7 @@ class UserInfo {
       const prize = res?.data?.integral || 0;
 
       // 连签累计奖励次数
-      const prizes = res?.data?.prizes || 0;
+      const prizes = res?.data?.signCount || 0;
 
       $.log(
         `✅ 连续签到${count}天 | 今日积分${prize} | 连签奖励累计${prizes}`
