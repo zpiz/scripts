@@ -1,0 +1,30 @@
+name: |-
+  v2ex
+desc: |-
+  v2ex
+author: |-
+  Curtinp118
+icon: |-
+  https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1052.png
+
+http:
+
+  mitm:
+    - "www.v2ex.com"
+
+  script:
+    - match: ^https://www\.v2ex\.com/(mission|member).*
+      name: "v2ex_9"
+      type: request
+      timeout: 60
+
+cron:
+  script:
+    - name: "v2ex_9"
+      cron: 10 9 * * *
+      timeout: 120
+
+script-providers:
+  "v2ex_9":
+    url: https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/v2ex/v2ex.js
+    interval: 86400
