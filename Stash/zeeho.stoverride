@@ -1,0 +1,32 @@
+name: |-
+  zeeho
+author: |-
+leiyiyan
+desc: |-
+  zeeho
+icon: |-
+  https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1001.png
+
+http:
+
+  mitm:
+    - "tapi.zeehoev.com"
+
+  script:
+# 获取 Cookie
+    - match: ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting
+      name: "极核Cookie_10"
+      type: response
+      require-body: true
+      timeout: 60
+
+cron:
+  script:
+# 脚本任务
+    - name: "极核Cookie_10"
+      cron: 0 7 * * *
+
+script-providers:
+  "极核Cookie_10":
+    url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/zeeho.js
+    interval: 86400
