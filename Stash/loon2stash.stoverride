@@ -1,0 +1,29 @@
+name: 适配可莉插件中心
+desc: 支持可莉插件中心的 Loon 插件通过 Script Hub 转换为 Stash 覆写安装；使用前请先添加 Script Hub 模块。
+author: 原作者 @iKeLee
+homepage: https://hub.kelee.one/
+
+http:
+  header-rewrite:
+    - ^https:\/\/hub\.kelee\.one\/list\.json request-del if-none-match
+  mitm:
+    - hub.kelee.one
+  script:
+    - match: ^https:\/\/hub\.kelee\.one\/list\.json
+      name: kelee-loon-to-stash
+      type: response
+      require-body: true
+
+script-providers:
+  kelee-loon-to-stash:
+    interval: 86400
+    payload: |
+      const body = ($response.body || '').replace(
+        /loon:\/\/import\?plugin=(https:\/\/kelee\.one\/Tool\/Loon\/Lpx\/([^"\\]+?)\.lpx)/g,
+        (_, url, name) => {
+          const scriptHub = `http://script.hub/file/_start_/${url}/_end_/${name}.stoverride?type=loon-plugin&target=stash-override&del=true&jqEnabled=true&pm=.&sni=.`;
+          return `stash://install-override?url=${encodeURIComponent(scriptHub)}`;
+        }
+      );
+
+      $done({ body });
