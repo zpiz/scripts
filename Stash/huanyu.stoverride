@@ -1,0 +1,41 @@
+name: |-
+  幻宇星球 VIP 解锁
+desc: |-
+  解锁 VIP
+author: |-
+  Yu9191 Rewrite
+icon: |-
+  https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1034.png
+homepage: |-
+  https://github.com/Yu9191/Rewrite
+
+http:
+
+  mitm:
+    - "huanyuxingqiu.fun"
+    - "huanyuxingqiu.vip"
+    - "huanyuxingqiu.life"
+    - "huanyuxingqiu.com"
+    - "huanyuxingqiu.top"
+    - "huanyuxingqiu.cc"
+    - "huanyuxingqiu.app"
+    - "huanyuxingqiu.xyz"
+    - "huanyuxingqiu.site"
+    - "daoyu.fan"
+    - "daoyu.com"
+    - "daoyu.top"
+    - "hyxq666.com"
+    - "hyxq.com"
+
+  script:
+    - match: ^https?://(?:huanyuxingqiu\.\w+|daoyu\.\w+|hyxq\w*\.\w+)/(?!.*\.(?:png|jpe?g|gif|webp|svg|ico|css|js|woff2?|ttf|eot|mp[34]|zip|rar)(?:\?|$))
+      name: "response_5"
+      type: request
+      require-body: true
+      max-size: -1
+      timeout: 60
+
+script-providers:
+  "response_5":
+    url: https://raw.githubusercontent.com/Yu9191/Rewrite/refs/heads/main/huanyu/dist/response.js
+    interval: 86400
