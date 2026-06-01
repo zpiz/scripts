@@ -1,5 +1,6 @@
 name: 青龙监控
 desc: 青龙监控
+author: "zpiz"
 script-providers:
   # 声明脚本提供者
   ql_monitor:
