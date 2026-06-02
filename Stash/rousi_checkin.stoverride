@@ -1,0 +1,26 @@
+name: |-
+  rousipro
+author: |-
+  zpiz
+desc: |-
+  rousipro
+icon: |-
+  https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1095.png
+
+http:
+
+  mitm:
+    - "rousi.pro"
+
+  script:
+    - match: ^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)
+      name: "rousipro_10"
+      type: response
+      require-body: true
+      max-size: -1
+      timeout: 60
+
+script-providers:
+  "rousipro_10":
+    url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
+    interval: 86400
