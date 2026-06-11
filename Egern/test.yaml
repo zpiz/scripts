@@ -17,15 +17,15 @@ dns: {}
 scriptings:
   - http_response:
       name: "rousipro 获取 ck"
-      match: "{{{ck_match}}}"
+      match: {{{ck_match}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       max_size: -1
       timeout: 60
       body_required: true
 
   - schedule:
-      name: "{{{sync}}}"
-      cron: "{{{cronexp}}}"
+      name: {{{sync}}}
+      cron: {{{cronexp}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
