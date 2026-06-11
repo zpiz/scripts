@@ -1,5 +1,6 @@
-name: PT-rousi站签到
-description: 登录获取ck
+name: PT-rousi脚本
+description: 登录获取ck，定时签到
+icon: https://github.com/zpiz/icons/blob/cc178cca6d9628a7b90a037f8f3618bb4922c0a4/icons/cfmoto.png
 dns: {}
 scriptings:
 - http_response:
@@ -9,6 +10,12 @@ scriptings:
     max_size: -1
     timeout: 60
     body_required: true
+- schedule:
+    name: rousi签到
+    cron: 13 10 * * *
+    script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
+    update_interval: 86400
+    timeout: 3600    
 mitm:
   hostnames:
     includes:
