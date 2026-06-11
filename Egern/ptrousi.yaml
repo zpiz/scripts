@@ -14,7 +14,7 @@ scriptings:
       #disabled: "{{CK_DISABLED}}"
   - schedule:
       name: "rousi 签到"
-      cron: "13 10 * * *"
+      cron: 13 10 * * *
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
