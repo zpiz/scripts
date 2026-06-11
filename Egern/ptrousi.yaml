@@ -6,19 +6,19 @@ compat_arguments:
   CK_DISABLED: "false"
   SIGN_DISABLED: "false"
 compat_arguments_desc: |-
-  CK_DISABLED: 获取 ck 开关，false 为开启，true 为关闭。
-  SIGN_DISABLED: 定时签到开关，false 为开启，true 为关闭。
+  CK_DISABLED: "获取 ck 开关，false 为开启，true 为关闭。"
+  SIGN_DISABLED: "定时签到开关，false 为开启，true 为关闭。"
 
 env_schema:
   CK_DISABLED:
-    name: 获取 ck
-    description: 关闭后不再通过 rousi.pro 接口响应获取 ck。
+    name: "获取 ck"
+    description: "关闭后不再通过 rousi.pro 接口响应获取 ck。"
     options:
       - "false"
       - "true"
   SIGN_DISABLED:
-    name: 定时签到
-    description: 关闭后不再执行每天 10:13 的签到任务。
+    name: "定时签到"
+    description: "关闭后不再执行每天 10:13 的签到任务。"
     options:
       - "false"
       - "true"
@@ -27,7 +27,7 @@ dns: {}
 
 scriptings:
   - http_response:
-      name: rousipro 获取 ck
+      name: "rousipro 获取 ck"
       match: ^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)
       script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
       max_size: -1
@@ -35,7 +35,7 @@ scriptings:
       body_required: true
       disabled: "{{CK_DISABLED}}"
   - schedule:
-      name: rousi 签到
+      name: "rousi 签到"
       cron: 13 10 * * *
       script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
       update_interval: 86400
