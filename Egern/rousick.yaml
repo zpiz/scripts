@@ -1,0 +1,15 @@
+name: PT-rousi站签到
+description: 登录获取ck
+dns: {}
+scriptings:
+- http_response:
+    name: rousipro
+    match: ^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)
+    script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
+    max_size: -1
+    timeout: 60
+    body_required: true
+mitm:
+  hostnames:
+    includes:
+    - rousi.pro
