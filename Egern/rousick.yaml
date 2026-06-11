@@ -3,8 +3,8 @@ description: 登录获取 ck，定时签到；获取 ck 和定时任务均可单
 icon: https://github.com/zpiz/icons/blob/cc178cca6d9628a7b90a037f8f3618bb4922c0a4/icons/cfmoto.png
 
 compat_arguments:
-  CK_DISABLED: false
-  SIGN_DISABLED: false
+  CK_DISABLED: "false"
+  SIGN_DISABLED: "false"
 compat_arguments_desc: |-
   CK_DISABLED: 获取 ck 开关，false 为开启，true 为关闭。
   SIGN_DISABLED: 定时签到开关，false 为开启，true 为关闭。
@@ -33,14 +33,14 @@ scriptings:
       max_size: -1
       timeout: 60
       body_required: true
-      disabled: {{{CK_DISABLED}}}
+      disabled: "{{CK_DISABLED}}"
   - schedule:
       name: rousi 签到
       cron: 13 10 * * *
       script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
       update_interval: 86400
       timeout: 3600
-      disabled: {{{SIGN_DISABLED}}}
+      disabled: "{{SIGN_DISABLED}}"
 
 mitm:
   hostnames:
