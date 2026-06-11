@@ -19,14 +19,14 @@ scriptings:
       max_size: -1
       timeout: 60
       body_required: true
-      #disabled: "{{CK_DISABLED}}"
+      disabled: "{{CK_DISABLED}}"
   - schedule:
       name: "rousi 签到"
       cron: 13 10 * * *
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
-      #disabled: "{{SIGN_DISABLED}}"
+      disabled: "{{SIGN_DISABLED}}"
 
 mitm:
   hostnames:
