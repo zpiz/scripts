@@ -28,7 +28,7 @@ dns: {}
 scriptings:
   - http_response:
       name: "rousipro 获取 ck"
-      match: "^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)"
+      match: "^https:\/\/rousi\\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)"
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       max_size: -1
       timeout: 60
