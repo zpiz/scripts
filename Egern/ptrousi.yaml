@@ -12,7 +12,7 @@ compat_arguments_desc: |-
 
 env_schema:
   CK_DISABLED:
-    name: "获取ck"
+    name: "获取 ck"
     description: "关闭后不再通过 rousi.pro 接口响应获取 ck。"
     options:
       - "false"
