@@ -1,6 +1,14 @@
 name: "PT-rousi脚本"
 description: "登录获取 ck，定时签到；获取 ck 和定时任务均可单独关闭"
 
+compat_arguments:
+  CK_DISABLED: false
+  SIGN_DISABLED: false
+
+compat_arguments_desc: |-
+  CK_DISABLED: 获取 ck 开关，false 为开启，true 为关闭。
+  SIGN_DISABLED: 定时签到开关，false 为开启，true 为关闭。
+
 dns: {}
 
 scriptings:
