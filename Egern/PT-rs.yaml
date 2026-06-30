@@ -7,7 +7,7 @@ compat_arguments:
   cron: "11 10 * * *"
 
 compat_arguments_schema:
-  token_enabled:
+  token_disabled:
     name: "禁用获取token"
     description: "禁用后关闭抓包获取token功能"
     options:
@@ -28,7 +28,7 @@ scriptings:
       max_size: -1
       timeout: 60
       body_required: true
-      disabled: {{{token_enabled}}}
+      disabled: {{{token_disabled}}}
   - schedule:
       name: "rousi签到"
       cron: {{{cron}}}
