@@ -1,31 +1,35 @@
 name: "PT-rousi脚本"
-description: "登录获取 ck，定时签到；获取 ck 和定时任务均可通过参数关闭"
+description: "登录获取 ck，定时签到；获取 ck 和定时任务均可单独关闭"
 icon: "https://github.com/zpiz/icons/blob/cc178cca6d9628a7b90a037f8f3618bb4922c0a4/icons/cfmoto.png"
 
 compat_arguments:
-  ck_match: '^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats)'
-  sync: "rousi 签到"
-  cronexp: "13 10 * * *"
+  token_url: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
+  cron: "11 10 * * *"
 
 compat_arguments_desc: |-
-  ck_match: 获取 ck 的接口匹配规则。设为 ^$ 可关闭获取 ck。
-  sync: 定时任务名称。设为 # 可取消定时签到。
-  cronexp: 定时签到 cron，默认每天 10:13。
-
+  token_url: 获取ck的URL 模式
+  cron: 执行时间
+#env_schema:
+#compat_arguments_schema:
+#  token_url:
+#    name: "token获取"
+#    default_value: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
+#  cron:
+#    name: "执行时间"
+#    default_value: "11 10 * * *"
 dns: {}
 
 scriptings:
   - http_response:
       name: "rousipro 获取 ck"
-      match: "{{{ck_match}}}"
+      match: {{{token_url}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       max_size: -1
       timeout: 60
       body_required: true
-
   - schedule:
-      name: "{{{sync}}}"
-      cron: "{{{cronexp}}}"
+      name: "rousi 签到"
+      cron: {{{cron}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
