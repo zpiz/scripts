@@ -21,14 +21,14 @@ dns: {}
 scriptings:
   - http_response:
       name: "rousipro 获取 ck"
-      match: "{{{token_url}}}"
+      match: {{{token_url}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       max_size: -1
       timeout: 60
       body_required: true
   - schedule:
       name: "rousi 签到"
-      cron: "{{{cron}}}"
+      cron: {{{cron}}}
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
