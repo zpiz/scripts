@@ -4,7 +4,7 @@ icon: "https://github.com/zpiz/icons/blob/cc178cca6d9628a7b90a037f8f3618bb4922c0
 
 compat_arguments:
   token_url: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
-  cron: 
+  cron:
 
 compat_arguments_desc: |-
   token_url: "获取ck的URL 模式"
@@ -21,14 +21,14 @@ dns: {}
 scriptings:
   - http_response:
       name: "rousipro 获取 ck"
-      match: {{{token_url}}}
+      match: "{{{token_url}}}"
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       max_size: -1
       timeout: 60
       body_required: true
   - schedule:
       name: "rousi 签到"
-      cron: {{{cron}}}
+      cron: "{{{cron}}}"
       script_url: "https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js"
       update_interval: 86400
       timeout: 3600
