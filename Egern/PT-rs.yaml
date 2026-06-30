@@ -10,6 +10,7 @@ compat_arguments_desc: |-
   token_disabled: 禁用获取token，默认不禁用
   cron: 脚本执行时间
 
+# env_schema:
 compat_arguments_schema:
   token_enabled:
     name: "禁用获取token"
