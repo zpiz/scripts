@@ -6,20 +6,17 @@ compat_arguments:
   token_disabled: false
   cron: "11 10 * * *"
 
-compat_arguments_desc: |-
-  token_disabled: 禁用获取token，默认不禁用
-  cron: 脚本执行时间
-
-# env_schema:
 compat_arguments_schema:
   token_enabled:
     name: "禁用获取token"
+    description: "禁用后关闭抓包获取token功能"
     options:
     - true
     - false
     default_value: false
   cron:
     name: "执行时间"
+    description: "自定义任务执行时间"
     default_value: "11 10 * * *"
 dns: {}
 
