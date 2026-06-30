@@ -9,8 +9,8 @@ compat_arguments:
 compat_arguments_desc: |-
   token_url: 获取ck的URL 模式
   cron: 执行时间
+# compat_arguments_schema:
 env_schema:
-#compat_arguments_schema:
   token_url:
     name: "token获取"
     default_value: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
