@@ -15,7 +15,7 @@ env_schema:
     default_value: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
   cron:
   name: 执行时间
-  default_value: 11 10 * * *
+  default_value: "11 10 * * *"
 dns: {}
 
 scriptings:
