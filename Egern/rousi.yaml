@@ -4,12 +4,18 @@ icon: "https://github.com/zpiz/icons/blob/cc178cca6d9628a7b90a037f8f3618bb4922c0
 
 compat_arguments:
   token_url: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
-  cron: false
+  cron: 
 
 compat_arguments_desc: |-
   token_url: 获取 ck 的 URL 模式。
   cron: 定时签到开关，false 为开启，true 为关闭。
-
+env_schema:
+  token_url:
+    name: token获取
+    default_value: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
+  cron:
+  name: 执行时间
+  default_value: 11 10 * * *
 dns: {}
 
 scriptings:
