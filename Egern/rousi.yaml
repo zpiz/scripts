@@ -7,14 +7,14 @@ compat_arguments:
   cron: 
 
 compat_arguments_desc: |-
-  token_url: 获取 ck 的 URL 模式。
-  cron: 定时签到开关，false 为开启，true 为关闭。
+  token_url: "获取ck的URL 模式"
+  cron: "执行时间"
 env_schema:
   token_url:
-    name: token获取
+    name: "token获取"
     default_value: "^https:\\/\\/rousi\\.pro\\/api\\/(me|points\\/init|points\\/balance|points\\/attendance\\/stats)"
   cron:
-  name: 执行时间
+  name: "执行时间"
   default_value: "11 10 * * *"
 dns: {}
 
