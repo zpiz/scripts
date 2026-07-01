@@ -1,0 +1,19 @@
+name: 腾讯视频签到
+description: 腾讯视频获取cookie+签到
+author: @WowYiJiu @Modifier: MaYIHEI
+dns: {}
+scriptings:
+- http_request:
+    name: "腾讯视频 Cookie"
+    match: "^https:\/\/pbaccess\.video\.qq\.com\/"
+    script_url: "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/tenvideo/tenvideo.js"
+    max_size: 0
+- schedule:
+    name: "腾讯视频签到"
+    cron: 10 10 * * *
+    script_url: "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/tenvideo/tenvideo.js"
+    timeout: 60
+mitm:
+  hostnames:
+    includes:
+      - pbaccess.video.qq.com, vip.video.qq.com
