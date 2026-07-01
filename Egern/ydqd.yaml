@@ -1,7 +1,7 @@
 name: "北京移动签到"
 description: "北京移动获取cookie+签到"
 author: "MaYIHEI"
-icon: "https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/cmcc.png"
+icon: "https://raw.githubusercontent.com/zpiz/icons/main/icons/zgyd.png"
 
 compat_arguments:
   token_disabled: false
