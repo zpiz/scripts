@@ -1,13 +1,13 @@
 name: "腾讯视频签到"
 description: "腾讯视频获取cookie+签到"
 author: "WowYiJiu Modifier: MaYIHEI"
+icon: "https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/tenvideo.png"
 dns: {}
 scriptings:
 - http_request:
     name: "腾讯视频 Cookie"
-    match: "^https:\/\/pbaccess\\.video\\.qq\\.com\/"
+    match: "^https:\\/\\/pbaccess\\.video\\.qq\\.com\\/"
     script_url: "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/tenvideo/tenvideo.js"
-    body_required: false
     max_size: 0
 - schedule:
     name: "腾讯视频签到"
