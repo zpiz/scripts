@@ -1,6 +1,6 @@
 name: 腾讯视频签到
 description: 腾讯视频获取cookie+签到
-author: @WowYiJiu @Modifier: MaYIHEI
+author: WowYiJiu Modifier: MaYIHEI
 dns: {}
 scriptings:
 - http_request:
