@@ -17,4 +17,5 @@ scriptings:
 mitm:
   hostnames:
     includes:
-      - pbaccess.video.qq.com, vip.video.qq.com
+      - pbaccess.video.qq.com
+      - vip.video.qq.com
