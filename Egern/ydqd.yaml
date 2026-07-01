@@ -1,0 +1,39 @@
+name: "北京移动签到"
+description: "北京移动获取cookie+签到"
+author: "MaYIHEI"
+icon: "https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/cmcc.png"
+
+compat_arguments:
+  token_disabled: false
+  cron: "20 8 * * *"
+
+compat_arguments_schema:
+  token_disabled:
+    name: "禁用获取token"
+    description: "禁用后关闭抓包获取token功能"
+    options:
+    - true
+    - false
+    default_value: false
+  cron:
+    name: "执行时间"
+    description: "自定义任务执行时间"
+    default_value: "20 8 * * *"
+
+dns: {}
+scriptings:
+- http_request:
+    name: "北京移动 Cookie"
+    match: "^https:\\/\\/h5\\.bj\\.10086\\.cn\\/ActSignIn2023\\/(getSignIn|doPrize)\\/JT\\/"
+    script_url: "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/cmccbj/cmccbj.js"
+    max_size: 0
+    disabled: {{{token_disabled}}}
+- schedule:
+    name: "北京移动签到"
+    cron: {{{cron}}}
+    script_url: "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/cmccbj/cmccbj.js"
+    timeout: 60
+mitm:
+  hostnames:
+    includes:
+      - h5.bj.10086.cn
