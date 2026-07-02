@@ -1,5 +1,5 @@
 /**
- * Egern 大A趋势组件
+ * Egern 股市组件
  * - 数据源：Yahoo Finance 公开 chart 接口（免 Key）
  * - 折线图：QuickChart.io（外部图表服务），返回 PNG，脚本内转 Base64 后用 image 组件渲染
  * - 中尺寸组件显示 3 个指数，大尺寸组件显示 6 个指数（按 ctx.widgetFamily 自动切换）
@@ -9,7 +9,7 @@
  *   SYMBOLS     JSON 字符串，形如：
  *               [{"symbol":"^DJI","name":"道琼斯","sub":"Dow Jones Industrial Average"}, ...]
  *               数组顺序即显示顺序；中尺寸取前 3 个，大尺寸取前 6 个。不设置则使用默认列表。
- *   CHART_DAYS  折线图取最近几天收盘价，默认 10
+ *   CHART_DAYS  折线图取最近几天收盘价，默认 30
  */
 
 const DEFAULT_SYMBOLS = [
@@ -88,10 +88,12 @@ function formatChange(change) {
 // ---------- 数据获取 ----------
 
 async function fetchQuote(ctx, symbol, days) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const period1 = nowSec - days * 24 * 60 * 60;
   const url =
     'https://query1.finance.yahoo.com/v8/finance/chart/' +
     encodeURIComponent(symbol) +
-    '?range=' + days + 'd&interval=1d';
+    '?period1=' + period1 + '&period2=' + nowSec + '&interval=1d';
 
   const resp = await ctx.http.get(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' },
@@ -101,9 +103,23 @@ async function fetchQuote(ctx, symbol, days) {
   const result = data.chart.result[0];
   const meta = result.meta;
 
-  const rawCloses = (result.indicators.quote[0].close || []).filter(
+  const quoteArr =
+    result.indicators && result.indicators.quote && result.indicators.quote[0]
+      ? result.indicators.quote[0].close
+      : [];
+  const adjArr =
+    result.indicators &&
+    result.indicators.adjclose &&
+    result.indicators.adjclose[0]
+      ? result.indicators.adjclose[0].adjclose
+      : [];
+
+  let rawCloses = (quoteArr || []).filter(
     (v) => v !== null && v !== undefined
   );
+  if (rawCloses.length < 2) {
+    rawCloses = (adjArr || []).filter((v) => v !== null && v !== undefined);
+  }
 
   const price = meta.regularMarketPrice;
   const prevClose =
@@ -120,30 +136,19 @@ async function fetchChartImage(ctx, closes, isUp) {
   const lineColor = isUp ? '#FF3B30' : '#34C759'; // 红涨绿跌
   const fillColor = isUp ? 'rgba(255,59,48,0.20)' : 'rgba(52,199,89,0.20)';
 
+  // sparkline 是 QuickChart 专用的极简折线图类型：
+  // 天生不带坐标轴 / 图例 / 标题，只画一条线，无需额外关闭任何选项
   const chartConfig = {
-    type: 'line',
+    type: 'sparkline',
     data: {
-      labels: closes.map((_, i) => i),
       datasets: [
         {
           data: closes,
           borderColor: lineColor,
           backgroundColor: fillColor,
           fill: true,
-          pointRadius: 0,
-          borderWidth: 3,
-          tension: 0.35,
         },
       ],
-    },
-    options: {
-      plugins: { legend: { display: false }, title: { display: false } },
-      scales: {
-        x: { display: false },
-        y: { display: false },
-      },
-      elements: { point: { radius: 0 } },
-      layout: { padding: 0 },
     },
   };
 
@@ -198,7 +203,6 @@ function buildRow(item, quote, chartDataUri) {
                 font: { size: 'subheadline', weight: 'bold' },
                 textColor: { light: '#000000', dark: '#FFFFFF' },
                 maxLines: 1,
-                minScale: 0.8,
               },
             ],
           },
@@ -208,7 +212,6 @@ function buildRow(item, quote, chartDataUri) {
             font: { size: 'caption2' },
             textColor: { light: '#8E8E93', dark: '#98989D' },
             maxLines: 1,
-            minScale: 0.8,
           },
         ],
       },
@@ -235,7 +238,6 @@ function buildRow(item, quote, chartDataUri) {
             textColor: { light: '#000000', dark: '#FFFFFF' },
             textAlign: 'right',
             maxLines: 1,
-            minScale: 0.7,
           },
           {
             type: 'text',
@@ -257,7 +259,7 @@ function divider() {
     direction: 'row',
     height: 1,
     backgroundColor: { light: '#E5E5EA', dark: '#38383A' },
-    children: [],
+    children: [{ type: 'spacer' }],
   };
 }
 
@@ -278,7 +280,7 @@ function errorWidget(message) {
 }
 
 export default async function (ctx) {
-  const days = parseInt(ctx.env.CHART_DAYS || '10', 10);
+  const days = parseInt(ctx.env.CHART_DAYS || '30', 10);
   const allSymbols = getSymbols(ctx);
 
   const count = ctx.widgetFamily === 'systemLarge' ? 6 : 3;
