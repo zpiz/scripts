@@ -32,8 +32,8 @@ export default async function(ctx) {
 
   return {
     type: 'widget',
-    padding: isLarge ? [16, 14, 13, 14] : [13, 14, 11, 14],
-    gap: isLarge ? 7 : 5,
+    padding: isLarge ? [16, 14, 13, 14] : [12, 14, 10, 14],
+    gap: isLarge ? 7 : 4,
     refreshAfter: nextRefreshISO(),
     backgroundGradient: {
       type: 'linear',
@@ -93,11 +93,19 @@ async function fetchIndex(ctx, index) {
   };
 }
 
+// 关键修复 3：
+// 标题栏（图标+"国内大盘"+时间）之前没有设置左右内边距，而下面的
+// 日期表头 / 数据行都设置了 rowPadX 的左右内边距，导致标题栏的图标
+// 和文字整体比下面几行更靠左（时间也比最后一列的日期/数值更靠右），
+// 视觉上"错了一层"。这里给标题栏加上和下面完全一样的 layout.rowPadX，
+// 让图标左边缘对齐标签列文字左边缘、时间右边缘对齐最后一列右边缘。
 function header(isLarge) {
+  const layout = getLayout(isLarge);
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
+    padding: [0, layout.rowPadX, 0, layout.rowPadX],
     children: [
       {
         type: 'stack',
@@ -160,7 +168,7 @@ function dateHeader(quotes, isLarge) {
           {
             type: 'text',
             text: '指数',
-            font: { size: isLarge ? 15 : 13, weight: 'medium' },
+            font: { size: isLarge ? 15 : 14, weight: 'medium' },
             textColor: COLOR.faint,
             maxLines: 1,
           },
@@ -176,7 +184,7 @@ function dateHeader(quotes, isLarge) {
           type: 'text',
           text: day.date,
           flex: 1,
-          font: { size: isLarge ? 14 : 12, weight: 'medium' },
+          font: { size: isLarge ? 14 : 13, weight: 'medium' },
           textColor: COLOR.faint,
           textAlign: 'center',
           maxLines: 1,
@@ -194,7 +202,7 @@ function indexRow(quote, isLarge) {
     direction: 'row',
     alignItems: 'center',
     gap: layout.rowGap,
-    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [4, layout.rowPadX, 4, layout.rowPadX],
+    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [3, layout.rowPadX, 3, layout.rowPadX],
     backgroundColor: '#FFFFFF10',
     borderRadius: 7,
     borderWidth: 0.5,
@@ -210,7 +218,7 @@ function indexRow(quote, isLarge) {
           {
             type: 'text',
             text: isLarge ? quote.name : quote.shortName,
-            font: { size: isLarge ? 19 : 14, weight: 'bold' },
+            font: { size: isLarge ? 19 : 15, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
             minScale: 0.72,
@@ -252,27 +260,27 @@ function pctChip(day, isLarge) {
     justifyContent: 'center',
     gap: isLarge ? 1 : 0,
     flex: 1,
-    padding: isLarge ? [4, 0, 4, 0] : [2, 0, 2, 0],
+    padding: isLarge ? [4, 0, 4, 0] : [1, 0, 1, 0],
     backgroundColor: COLOR.chip,
     borderRadius: 5,
     children: [
       {
         type: 'text',
         text: formatPct(pct),
-        font: { size: isLarge ? 13.5 : 11.5, weight: 'bold', family: 'Menlo' },
+        font: { size: isLarge ? 13.5 : 12.5, weight: 'bold', family: 'Menlo' },
         textColor: color,
         textAlign: 'center',
         maxLines: 1,
-        minScale: isLarge ? 0.5 : 0.54,
+        minScale: isLarge ? 0.5 : 0.5,
       },
       {
         type: 'text',
         text: formatClose(day.close),
-        font: { size: isLarge ? 9.5 : 8, weight: 'semibold', family: 'Menlo' },
+        font: { size: isLarge ? 9.5 : 9, weight: 'semibold', family: 'Menlo' },
         textColor: COLOR.muted,
         textAlign: 'center',
         maxLines: 1,
-        minScale: isLarge ? 0.45 : 0.52,
+        minScale: isLarge ? 0.45 : 0.48,
       },
     ],
   };
