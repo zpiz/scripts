@@ -174,13 +174,13 @@ function buildRow(item, quote, chartDataUri) {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     children: [
-      // 左：方向箭头 + 名称 + 副标题
+      // 左：方向箭头 + 名称 + 副标题（用尾部 spacer 把内容顶死在左边，
+      // 不依赖 alignItems，避免在 flex 容器里被居中）
       {
         type: 'stack',
         direction: 'column',
-        alignItems: 'start',
         gap: 2,
         flex: 1,
         children: [
@@ -204,14 +204,22 @@ function buildRow(item, quote, chartDataUri) {
                 textColor: { light: '#000000', dark: '#FFFFFF' },
                 maxLines: 1,
               },
+              { type: 'spacer' },
             ],
           },
           {
-            type: 'text',
-            text: item.sub || '',
-            font: { size: 'caption2' },
-            textColor: { light: '#8E8E93', dark: '#98989D' },
-            maxLines: 1,
+            type: 'stack',
+            direction: 'row',
+            children: [
+              {
+                type: 'text',
+                text: item.sub || '',
+                font: { size: 'caption2' },
+                textColor: { light: '#8E8E93', dark: '#98989D' },
+                maxLines: 1,
+              },
+              { type: 'spacer' },
+            ],
           },
         ],
       },
@@ -219,33 +227,48 @@ function buildRow(item, quote, chartDataUri) {
       {
         type: 'image',
         src: chartDataUri,
-        width: 66,
-        height: 30,
+        width: 60,
+        height: 28,
         resizeMode: 'contain',
       },
-      // 右：现价 + 涨跌
+      // 右：现价 + 涨跌（用头部 spacer 把内容顶死在右边；字号调小 + 加宽，避免被截断）
       {
         type: 'stack',
         direction: 'column',
-        alignItems: 'end',
         gap: 2,
-        width: 64,
+        width: 84,
         children: [
           {
-            type: 'text',
-            text: formatPrice(quote.price, item.symbol),
-            font: { size: 'subheadline', weight: 'bold' },
-            textColor: { light: '#000000', dark: '#FFFFFF' },
-            textAlign: 'right',
-            maxLines: 1,
+            type: 'stack',
+            direction: 'row',
+            children: [
+              { type: 'spacer' },
+              {
+                type: 'text',
+                text: formatPrice(quote.price, item.symbol),
+                font: { size: 'footnote', weight: 'bold' },
+                textColor: { light: '#000000', dark: '#FFFFFF' },
+                textAlign: 'right',
+                maxLines: 1,
+                minScale: 0.6,
+              },
+            ],
           },
           {
-            type: 'text',
-            text: formatChange(quote.change),
-            font: { size: 'caption1', weight: 'semibold' },
-            textColor: color,
-            textAlign: 'right',
-            maxLines: 1,
+            type: 'stack',
+            direction: 'row',
+            children: [
+              { type: 'spacer' },
+              {
+                type: 'text',
+                text: formatChange(quote.change),
+                font: { size: 'caption2', weight: 'semibold' },
+                textColor: color,
+                textAlign: 'right',
+                maxLines: 1,
+                minScale: 0.6,
+              },
+            ],
           },
         ],
       },
