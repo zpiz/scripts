@@ -32,8 +32,8 @@ export default async function(ctx) {
 
   return {
     type: 'widget',
-    padding: isLarge ? [16, 18, 14, 18] : [13, 14, 12, 14],
-    gap: isLarge ? 10 : 7,
+    padding: isLarge ? [16, 18, 13, 18] : [13, 14, 11, 14],
+    gap: isLarge ? 7 : 5,
     refreshAfter: nextRefreshISO(),
     backgroundGradient: {
       type: 'linear',
@@ -108,14 +108,14 @@ function header(isLarge) {
           {
             type: 'image',
             src: 'sf-symbol:chart.line.uptrend.xyaxis',
-            width: isLarge ? 18 : 16,
-            height: isLarge ? 18 : 16,
+            width: isLarge ? 21 : 18,
+            height: isLarge ? 21 : 18,
             color: '#F7C56B',
           },
           {
             type: 'text',
             text: '国内大盘',
-            font: { size: isLarge ? 'headline' : 16, weight: 'bold' },
+            font: { size: isLarge ? 24 : 18, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
           },
@@ -126,7 +126,7 @@ function header(isLarge) {
         type: 'date',
         date: new Date().toISOString(),
         format: 'time',
-        font: { size: 'caption2', weight: 'medium' },
+        font: { size: isLarge ? 15 : 13, weight: 'medium' },
         textColor: COLOR.muted,
       },
     ],
@@ -135,17 +135,19 @@ function header(isLarge) {
 
 function dateHeader(quotes, isLarge) {
   const days = quotes[0].days;
+  const layout = getLayout(isLarge);
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    padding: [0, 0, 2, 0],
+    padding: [0, 0, 1, 0],
     children: [
       {
         type: 'text',
-        text: isLarge ? '指数 / 收盘' : '指数',
-        width: isLarge ? 104 : 54,
-        font: { size: 'caption2', weight: 'medium' },
+        text: '指数',
+        width: layout.dateLead,
+        padding: [0, 0, 0, layout.rowPadX],
+        font: { size: isLarge ? 14 : 12, weight: 'medium' },
         textColor: COLOR.faint,
         maxLines: 1,
       },
@@ -153,13 +155,13 @@ function dateHeader(quotes, isLarge) {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
-        gap: isLarge ? 6 : 4,
+        gap: layout.chipGap,
         flex: 1,
         children: days.map((day) => ({
           type: 'text',
           text: day.date,
           flex: 1,
-          font: { size: 9, weight: 'medium' },
+          font: { size: isLarge ? 13 : 11, weight: 'medium' },
           textColor: COLOR.faint,
           textAlign: 'center',
           maxLines: 1,
@@ -171,12 +173,13 @@ function dateHeader(quotes, isLarge) {
 }
 
 function indexRow(quote, isLarge) {
+  const layout = getLayout(isLarge);
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: isLarge ? 8 : 6,
-    padding: isLarge ? [8, 9, 8, 9] : [5, 6, 5, 6],
+    gap: layout.rowGap,
+    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [4, layout.rowPadX, 4, layout.rowPadX],
     backgroundColor: '#FFFFFF10',
     borderRadius: 7,
     borderWidth: 0.5,
@@ -186,54 +189,64 @@ function indexRow(quote, isLarge) {
         type: 'stack',
         direction: 'column',
         alignItems: 'start',
-        gap: isLarge ? 2 : 0,
-        width: isLarge ? 88 : 48,
+        gap: 0,
+        width: layout.labelWidth,
         children: [
           {
             type: 'text',
             text: isLarge ? quote.name : quote.shortName,
-            font: { size: isLarge ? 'caption1' : 11, weight: 'semibold' },
+            font: { size: isLarge ? 18 : 13, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
             minScale: 0.72,
           },
-          ...(isLarge
-            ? [{
-                type: 'text',
-                text: formatClose(quote.latest.close),
-                font: { size: 10, weight: 'medium', family: 'Menlo' },
-                textColor: COLOR.muted,
-                maxLines: 1,
-              }]
-            : []),
         ],
       },
       {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
-        gap: isLarge ? 6 : 4,
+        gap: layout.chipGap,
         flex: 1,
-        children: quote.days.map((day) => pctChip(day.pct, isLarge)),
+        children: quote.days.map((day) => pctChip(day, isLarge)),
       },
     ],
   };
 }
 
-function pctChip(pct, isLarge) {
+function pctChip(day, isLarge) {
+  const pct = day.pct;
   const color = pct > 0 ? COLOR.up : pct < 0 ? COLOR.down : COLOR.flat;
   return {
-    type: 'text',
-    text: formatPct(pct),
+    type: 'stack',
+    direction: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: isLarge ? 1 : 0,
     flex: 1,
-    padding: isLarge ? [4, 0, 4, 0] : [3, 0, 3, 0],
+    padding: isLarge ? [4, 0, 4, 0] : [2, 0, 2, 0],
     backgroundColor: COLOR.chip,
     borderRadius: 5,
-    font: { size: isLarge ? 11 : 9, weight: 'bold', family: 'Menlo' },
-    textColor: color,
-    textAlign: 'center',
-    maxLines: 1,
-    minScale: 0.62,
+    children: [
+      {
+        type: 'text',
+        text: formatPct(pct),
+        font: { size: isLarge ? 14 : 10.5, weight: 'bold', family: 'Menlo' },
+        textColor: color,
+        textAlign: 'center',
+        maxLines: 1,
+        minScale: 0.58,
+      },
+      {
+        type: 'text',
+        text: formatClose(day.close),
+        font: { size: isLarge ? 10 : 7.5, weight: 'semibold', family: 'Menlo' },
+        textColor: COLOR.muted,
+        textAlign: 'center',
+        maxLines: 1,
+        minScale: 0.52,
+      },
+    ],
   };
 }
 
@@ -245,8 +258,8 @@ function footer() {
     children: [
       {
         type: 'text',
-        text: '东方财富 · 最近5个交易日',
-        font: { size: 'caption2', weight: 'medium' },
+        text: '腾讯行情 · 最近5个交易日',
+        font: { size: 9, weight: 'medium' },
         textColor: COLOR.faint,
         maxLines: 1,
       },
@@ -254,8 +267,8 @@ function footer() {
       {
         type: 'image',
         src: 'sf-symbol:arrow.triangle.2.circlepath',
-        width: 11,
-        height: 11,
+        width: 10,
+        height: 10,
         color: COLOR.faint,
       },
     ],
@@ -297,6 +310,19 @@ function errorWidget(message) {
         minScale: 0.7,
       },
     ],
+  };
+}
+
+function getLayout(isLarge) {
+  const rowPadX = isLarge ? 9 : 6;
+  const labelWidth = isLarge ? 108 : 48;
+  const rowGap = isLarge ? 8 : 6;
+  return {
+    rowPadX,
+    labelWidth,
+    rowGap,
+    chipGap: isLarge ? 6 : 4,
+    dateLead: rowPadX + labelWidth + rowGap,
   };
 }
 
