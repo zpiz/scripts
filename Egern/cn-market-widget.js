@@ -32,8 +32,8 @@ export default async function(ctx) {
 
   return {
     type: 'widget',
-    padding: isLarge ? [16, 14, 13, 14] : [12, 14, 10, 14],
-    gap: isLarge ? 7 : 4,
+    padding: isLarge ? [16, 14, 13, 14] : [13, 14, 11, 14],
+    gap: isLarge ? 7 : 6,
     refreshAfter: nextRefreshISO(),
     backgroundGradient: {
       type: 'linear',
@@ -48,7 +48,7 @@ export default async function(ctx) {
       dateHeader(quotes, isLarge),
       ...quotes.map((quote) => indexRow(quote, isLarge)),
       { type: 'spacer' },
-      footer(),
+      footer(isLarge),
     ],
   };
 }
@@ -141,17 +141,11 @@ function header(isLarge) {
   };
 }
 
-// 关键修复 1：
-// Egern DSL 中 `width` 属性只对 stack / image 生效，对 text 元素无效
-// （见文档「通用属性」表：width 的适用范围是 stack, image）。
-// 之前 "指数" 是直接给 text 设置了 width，这个 width 会被忽略，
-// 于是表头的标签列实际宽度只等于文字本身的自然宽度（很窄），
-// 而下方数据行的标签是包在一个设置了 width 的 stack 里（宽度生效），
-// 两者标签列宽度不一致，导致后面的日期 / 数值列错位。
-// 修复方式：把 "指数" 文本也包进一个和数据行同样宽度的 stack 里。
+// 关键调整：中尺寸组件从显示 5 天改为只显示最近 3 天，
+// 腾出的横向空间用来把字体和列间距都调大，可读性更好。
 function dateHeader(quotes, isLarge) {
-  const days = quotes[0].days;
   const layout = getLayout(isLarge);
+  const days = quotes[0].days.slice(-layout.dayCount);
   return {
     type: 'stack',
     direction: 'row',
@@ -168,7 +162,7 @@ function dateHeader(quotes, isLarge) {
           {
             type: 'text',
             text: '指数',
-            font: { size: isLarge ? 15 : 14, weight: 'medium' },
+            font: { size: isLarge ? 15 : 16, weight: 'medium' },
             textColor: COLOR.faint,
             maxLines: 1,
           },
@@ -184,7 +178,7 @@ function dateHeader(quotes, isLarge) {
           type: 'text',
           text: day.date,
           flex: 1,
-          font: { size: isLarge ? 14 : 13, weight: 'medium' },
+          font: { size: isLarge ? 14 : 15, weight: 'medium' },
           textColor: COLOR.faint,
           textAlign: 'center',
           maxLines: 1,
@@ -197,12 +191,13 @@ function dateHeader(quotes, isLarge) {
 
 function indexRow(quote, isLarge) {
   const layout = getLayout(isLarge);
+  const days = quote.days.slice(-layout.dayCount);
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
     gap: layout.rowGap,
-    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [3, layout.rowPadX, 3, layout.rowPadX],
+    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [6, layout.rowPadX, 6, layout.rowPadX],
     backgroundColor: '#FFFFFF10',
     borderRadius: 7,
     borderWidth: 0.5,
@@ -218,7 +213,7 @@ function indexRow(quote, isLarge) {
           {
             type: 'text',
             text: isLarge ? quote.name : quote.shortName,
-            font: { size: isLarge ? 19 : 15, weight: 'bold' },
+            font: { size: isLarge ? 19 : 18, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
             minScale: 0.72,
@@ -231,7 +226,7 @@ function indexRow(quote, isLarge) {
         alignItems: 'center',
         gap: layout.chipGap,
         flex: 1,
-        children: quote.days.map((day) => pctChip(day, isLarge)),
+        children: days.map((day) => pctChip(day, isLarge)),
       },
     ],
   };
@@ -258,35 +253,36 @@ function pctChip(day, isLarge) {
     direction: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: isLarge ? 1 : 0,
+    gap: isLarge ? 1 : 2,
     flex: 1,
-    padding: isLarge ? [4, 0, 4, 0] : [1, 0, 1, 0],
+    padding: isLarge ? [4, 0, 4, 0] : [5, 0, 5, 0],
     backgroundColor: COLOR.chip,
     borderRadius: 5,
     children: [
       {
         type: 'text',
         text: formatPct(pct),
-        font: { size: isLarge ? 13.5 : 12.5, weight: 'bold', family: 'Menlo' },
+        font: { size: isLarge ? 13.5 : 16.5, weight: 'bold', family: 'Menlo' },
         textColor: color,
         textAlign: 'center',
         maxLines: 1,
-        minScale: isLarge ? 0.5 : 0.5,
+        minScale: isLarge ? 0.5 : 0.6,
       },
       {
         type: 'text',
         text: formatClose(day.close),
-        font: { size: isLarge ? 9.5 : 9, weight: 'semibold', family: 'Menlo' },
+        font: { size: isLarge ? 9.5 : 12, weight: 'semibold', family: 'Menlo' },
         textColor: COLOR.muted,
         textAlign: 'center',
         maxLines: 1,
-        minScale: isLarge ? 0.45 : 0.48,
+        minScale: isLarge ? 0.45 : 0.55,
       },
     ],
   };
 }
 
-function footer() {
+function footer(isLarge) {
+  const layout = getLayout(isLarge);
   return {
     type: 'stack',
     direction: 'row',
@@ -294,7 +290,7 @@ function footer() {
     children: [
       {
         type: 'text',
-        text: '腾讯行情 · 最近5个交易日',
+        text: '腾讯行情 · 最近' + layout.dayCount + '个交易日',
         font: { size: 9, weight: 'medium' },
         textColor: COLOR.faint,
         maxLines: 1,
@@ -349,17 +345,18 @@ function errorWidget(message) {
   };
 }
 
-// 关键修复 2 的配套调整：收紧大尺寸下的各项间距/标签宽度，
-// 把更多空间让给右侧的 5 列涨跌幅数据。
+// 中尺寸只显示最近 3 天（dayCount），空出来的空间用来放大标签列宽度、
+// 列间距和字体；大尺寸维持 5 天不变。
 function getLayout(isLarge) {
-  const rowPadX = isLarge ? 6 : 6;
-  const labelWidth = isLarge ? 92 : 48;
-  const rowGap = isLarge ? 6 : 6;
+  const rowPadX = isLarge ? 6 : 8;
+  const labelWidth = isLarge ? 92 : 56;
+  const rowGap = isLarge ? 6 : 8;
   return {
     rowPadX,
     labelWidth,
     rowGap,
-    chipGap: isLarge ? 4 : 4,
+    dayCount: isLarge ? 5 : 3,
+    chipGap: isLarge ? 4 : 8,
     dateLead: rowPadX + labelWidth + rowGap,
   };
 }
