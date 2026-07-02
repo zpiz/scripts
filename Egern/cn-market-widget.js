@@ -30,10 +30,15 @@ export default async function(ctx) {
     return errorWidget(String(err && err.message ? err.message : err));
   }
 
+  // 中尺寸的物理高度非常有限（约 155pt），之前 4 行 + 大字体导致内容
+  // 撑爆高度、上下两行文字重叠。这里中尺寸只展示前两个指数（上证、深成），
+  // 大尺寸依然展示全部 4 个。
+  const displayQuotes = isLarge ? quotes : quotes.slice(0, 2);
+
   return {
     type: 'widget',
-    padding: isLarge ? [16, 14, 13, 14] : [13, 14, 11, 14],
-    gap: isLarge ? 7 : 6,
+    padding: isLarge ? [16, 14, 13, 14] : [9, 14, 7, 14],
+    gap: isLarge ? 7 : 3,
     refreshAfter: nextRefreshISO(),
     backgroundGradient: {
       type: 'linear',
@@ -46,8 +51,8 @@ export default async function(ctx) {
     children: [
       header(isLarge),
       dateHeader(quotes, isLarge),
-      ...quotes.map((quote) => indexRow(quote, isLarge)),
-      { type: 'spacer' },
+      ...displayQuotes.map((quote) => indexRow(quote, isLarge)),
+      ...(isLarge ? [{ type: 'spacer' }] : []),
       footer(isLarge),
     ],
   };
@@ -123,7 +128,7 @@ function header(isLarge) {
           {
             type: 'text',
             text: '国内大盘',
-            font: { size: isLarge ? 23 : 19, weight: 'bold' },
+            font: { size: isLarge ? 23 : 17, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
           },
@@ -134,7 +139,7 @@ function header(isLarge) {
         type: 'date',
         date: new Date().toISOString(),
         format: 'time',
-        font: { size: isLarge ? 15 : 13, weight: 'medium' },
+        font: { size: isLarge ? 15 : 12, weight: 'medium' },
         textColor: COLOR.muted,
       },
     ],
@@ -162,7 +167,7 @@ function dateHeader(quotes, isLarge) {
           {
             type: 'text',
             text: '指数',
-            font: { size: isLarge ? 15 : 16, weight: 'medium' },
+            font: { size: isLarge ? 15 : 13, weight: 'medium' },
             textColor: COLOR.faint,
             maxLines: 1,
           },
@@ -178,7 +183,7 @@ function dateHeader(quotes, isLarge) {
           type: 'text',
           text: day.date,
           flex: 1,
-          font: { size: isLarge ? 14 : 15, weight: 'medium' },
+          font: { size: isLarge ? 14 : 13, weight: 'medium' },
           textColor: COLOR.faint,
           textAlign: 'center',
           maxLines: 1,
@@ -197,7 +202,7 @@ function indexRow(quote, isLarge) {
     direction: 'row',
     alignItems: 'center',
     gap: layout.rowGap,
-    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [6, layout.rowPadX, 6, layout.rowPadX],
+    padding: isLarge ? [7, layout.rowPadX, 7, layout.rowPadX] : [2, layout.rowPadX, 2, layout.rowPadX],
     backgroundColor: '#FFFFFF10',
     borderRadius: 7,
     borderWidth: 0.5,
@@ -213,7 +218,7 @@ function indexRow(quote, isLarge) {
           {
             type: 'text',
             text: isLarge ? quote.name : quote.shortName,
-            font: { size: isLarge ? 19 : 18, weight: 'bold' },
+            font: { size: isLarge ? 19 : 17, weight: 'bold' },
             textColor: COLOR.text,
             maxLines: 1,
             minScale: 0.72,
@@ -232,19 +237,15 @@ function indexRow(quote, isLarge) {
   };
 }
 
-// 关键修复 2：
-// 大尺寸组件涨跌幅/收盘价显示不全（出现省略号），根本原因是
-// 标签列宽度（原 108）+ 行内边距（原左右各 9）+ 列间距（原 6）占用了
-// 过多空间，导致留给 5 列涨跌幅的可用宽度被压得很窄，即使字体本身
-// 已经设置了 minScale 也不足以把 "-2.26%" "16,205.56" 这种较长文本
-// 缩小到能放进去的程度。
-// 处理方式：
-//   1) 收紧大尺寸下的整体内边距、标签列宽度、行间距、列间距，
-//      把更多横向空间让给数值列；
-//   2) 适当调小大尺寸涨跌幅/收盘价的基础字号，并降低 minScale 下限，
-//      让文本有更大的自动缩放空间，优先「完整显示但变小」而不是被截断。
-// 如果在实际设备上仍有个别机型显示不全，可以在 getLayout 里把
-// labelWidth / chipGap 再调小一点，或把 pctChip 里的字号再降 1-2pt。
+// 关键修复 4：
+// systemMedium 小组件的物理高度是固定的（约 155pt 左右，跟宽度无关），
+// 不会因为内容多而自动变高。之前把涨跌幅/收盘价字体调到 16.5/12，
+// 4 行 × 两行文字的总高度远超过这个上限，超出部分不会被截断，而是
+// 上下两行文字直接叠在一起（就是截图里看到的重影效果）。
+// 这次改为：中尺寸只展示 2 个指数、只显示 3 天，同时把每个色块内的
+// 字号、行间距、内边距都压缩到一个经过估算、留有余量的数值，
+// 保证「标题栏 + 日期行 + 2 行数据 + 底部说明」的总高度控制在
+// 155pt 以内，不会再出现重叠。
 function pctChip(day, isLarge) {
   const pct = day.pct;
   const color = pct > 0 ? COLOR.up : pct < 0 ? COLOR.down : COLOR.flat;
@@ -253,16 +254,16 @@ function pctChip(day, isLarge) {
     direction: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: isLarge ? 1 : 2,
+    gap: isLarge ? 1 : 1,
     flex: 1,
-    padding: isLarge ? [4, 0, 4, 0] : [5, 0, 5, 0],
+    padding: isLarge ? [4, 0, 4, 0] : [2, 0, 2, 0],
     backgroundColor: COLOR.chip,
     borderRadius: 5,
     children: [
       {
         type: 'text',
         text: formatPct(pct),
-        font: { size: isLarge ? 13.5 : 16.5, weight: 'bold', family: 'Menlo' },
+        font: { size: isLarge ? 13.5 : 14, weight: 'bold', family: 'Menlo' },
         textColor: color,
         textAlign: 'center',
         maxLines: 1,
@@ -271,7 +272,7 @@ function pctChip(day, isLarge) {
       {
         type: 'text',
         text: formatClose(day.close),
-        font: { size: isLarge ? 9.5 : 12, weight: 'semibold', family: 'Menlo' },
+        font: { size: isLarge ? 9.5 : 10, weight: 'semibold', family: 'Menlo' },
         textColor: COLOR.muted,
         textAlign: 'center',
         maxLines: 1,
@@ -291,7 +292,7 @@ function footer(isLarge) {
       {
         type: 'text',
         text: '腾讯行情 · 最近' + layout.dayCount + '个交易日',
-        font: { size: 9, weight: 'medium' },
+        font: { size: isLarge ? 9 : 8, weight: 'medium' },
         textColor: COLOR.faint,
         maxLines: 1,
       },
