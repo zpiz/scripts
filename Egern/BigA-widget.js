@@ -1,24 +1,25 @@
 /**
  * Egern 股市组件
- * - 数据源：Yahoo Finance 公开 chart 接口（免 Key）
+ * - 数据源：新浪财经（hq.sinajs.cn 实时行情 + K线接口），面向中国大陆 A 股指数，免 Key
  * - 折线图：QuickChart.io（外部图表服务），返回 PNG，脚本内转 Base64 后用 image 组件渲染
  * - 中尺寸组件显示 3 个指数，大尺寸组件显示 6 个指数（按 ctx.widgetFamily 自动切换）
  * - 颜色采用国内习惯：红涨绿跌
  *
  * 可选环境变量（在 widgets[].env 中设置）：
  *   SYMBOLS     JSON 字符串，形如：
- *               [{"symbol":"^DJI","name":"道琼斯","sub":"Dow Jones Industrial Average"}, ...]
- *               数组顺序即显示顺序；中尺寸取前 3 个，大尺寸取前 6 个。不设置则使用默认列表。
+ *               [{"symbol":"sh000001","name":"上证指数","sub":"Shanghai Composite"}, ...]
+ *               symbol 用新浪财经代码（sh/sz 前缀）。数组顺序即显示顺序；
+ *               中尺寸取前 3 个，大尺寸取前 6 个。不设置则使用默认列表。
  *   CHART_DAYS  折线图取最近几天收盘价，默认 30
  */
 
 const DEFAULT_SYMBOLS = [
-  { symbol: '000001.SS', name: '上证指数', sub: 'Shanghai Composite' },
-  { symbol: '399001.SZ', name: '深证成指', sub: 'Shenzhen Component' },
-  { symbol: '399006.SZ', name: '创业板指', sub: 'ChiNext Price Index' },
-  { symbol: '000300.SS', name: '沪深300', sub: 'CSI 300' },
-  { symbol: '000016.SS', name: '上证50', sub: 'SSE 50' },
-  { symbol: '000905.SS', name: '中证500', sub: 'CSI 500' },
+  { symbol: 'sh000001', name: '上证指数', sub: 'Shanghai Composite' },
+  { symbol: 'sz399001', name: '深证成指', sub: 'Shenzhen Component' },
+  { symbol: 'sz399006', name: '创业板指', sub: 'ChiNext Price Index' },
+  { symbol: 'sh000300', name: '沪深300', sub: 'CSI 300' },
+  { symbol: 'sh000016', name: '上证50', sub: 'SSE 50' },
+  { symbol: 'sh000905', name: '中证500', sub: 'CSI 500' },
 ];
 
 // ---------- 工具函数 ----------
@@ -65,7 +66,7 @@ function formatPrice(price, symbol) {
   if (price == null || Number.isNaN(price)) return '--';
   const isAShareIndex =
     typeof symbol === 'string' &&
-    (symbol.endsWith('.SS') || symbol.endsWith('.SZ'));
+    (symbol.startsWith('sh') || symbol.startsWith('sz'));
   if (isAShareIndex) {
     // A股指数习惯显示为千分位 + 2位小数，如 3,015.32
     return price.toLocaleString('en-US', {
@@ -85,51 +86,82 @@ function formatChange(change) {
   return sign + change.toFixed(2);
 }
 
-// ---------- 数据获取 ----------
+// ---------- 数据获取（新浪财经） ----------
+// 实时行情：https://hq.sinajs.cn/list=sh000001
+// 日K线：  https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData
+// 注意：新浪接口会校验 Referer，必须带上 finance.sina.com.cn，否则会被拒绝或返回空
 
-async function fetchQuote(ctx, symbol, days) {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const period1 = nowSec - days * 24 * 60 * 60;
-  const url =
-    'https://query1.finance.yahoo.com/v8/finance/chart/' +
-    encodeURIComponent(symbol) +
-    '?period1=' + period1 + '&period2=' + nowSec + '&interval=1d';
+const SINA_HEADERS = {
+  Referer: 'https://finance.sina.com.cn',
+  'User-Agent':
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15',
+};
 
+async function fetchRealtime(ctx, code) {
+  const url = 'https://hq.sinajs.cn/list=' + code;
   const resp = await ctx.http.get(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' },
+    headers: SINA_HEADERS,
     timeout: 10000,
   });
-  const data = await resp.json();
-  const result = data.chart.result[0];
-  const meta = result.meta;
+  const text = await resp.text();
+  // 返回形如：var hq_str_sh000001="上证指数,开盘,昨收,最新价,最高,最低,...";
+  const match = text.match(/="([^"]*)"/);
+  if (!match || !match[1]) {
+    throw new Error('empty realtime response: ' + code);
+  }
+  const fields = match[1].split(',');
+  const price = parseFloat(fields[3]);
+  const prevClose = parseFloat(fields[2]);
+  if (Number.isNaN(price) || Number.isNaN(prevClose)) {
+    throw new Error('bad realtime data: ' + code);
+  }
+  return { price, prevClose, change: price - prevClose };
+}
 
-  const quoteArr =
-    result.indicators && result.indicators.quote && result.indicators.quote[0]
-      ? result.indicators.quote[0].close
-      : [];
-  const adjArr =
-    result.indicators &&
-    result.indicators.adjclose &&
-    result.indicators.adjclose[0]
-      ? result.indicators.adjclose[0].adjclose
-      : [];
+async function fetchKlineCloses(ctx, code, days) {
+  const url =
+    'https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=' +
+    code +
+    '&scale=240&ma=no&datalen=' +
+    days;
+  const resp = await ctx.http.get(url, {
+    headers: SINA_HEADERS,
+    timeout: 10000,
+  });
+  const text = await resp.text();
+  let list = [];
+  try {
+    list = JSON.parse(text);
+  } catch (e) {
+    try {
+      // 极少数情况下字段名没有引号，做一次容错转换再解析
+      const fixed = text.replace(/([{,])(\w+):/g, '$1"$2":');
+      list = JSON.parse(fixed);
+    } catch (e2) {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => parseFloat(item.close))
+    .filter((v) => !Number.isNaN(v));
+}
 
-  let rawCloses = (quoteArr || []).filter(
-    (v) => v !== null && v !== undefined
-  );
-  if (rawCloses.length < 2) {
-    rawCloses = (adjArr || []).filter((v) => v !== null && v !== undefined);
+async function fetchQuote(ctx, code, days) {
+  const [realtime, klineCloses] = await Promise.all([
+    fetchRealtime(ctx, code),
+    fetchKlineCloses(ctx, code, days).catch(() => []),
+  ]);
+
+  let closes = klineCloses.length > 1 ? klineCloses.slice() : [];
+  if (closes.length < 2) {
+    closes = [realtime.prevClose, realtime.price];
+  } else if (closes[closes.length - 1] !== realtime.price) {
+    // K线最后一根有时是收盘价，用实时价补一个点，让走势图跟得上最新价
+    closes.push(realtime.price);
   }
 
-  const price = meta.regularMarketPrice;
-  const prevClose =
-    meta.previousClose != null ? meta.previousClose : meta.chartPreviousClose;
-  const change = price - prevClose;
-
-  // 至少保证有两个点用于画线
-  const closes = rawCloses.length > 1 ? rawCloses : [prevClose, price];
-
-  return { price, change, closes };
+  return { price: realtime.price, change: realtime.change, closes };
 }
 
 async function fetchChartImage(ctx, closes, isUp) {
