@@ -9,7 +9,7 @@ new Env("PTTime")
 cron 10 8 * * * pttime.js
 
 [rewrite_local]
-^https:\/\/www\.pttime\.org\/(index|attendance)\.php url script-request-header https://raw.githubusercontent.com/your-repo/pttime.js
+^https:\/\/www\.pttime\.org\/(index|attendance)\.php url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/pttime.js
 
 [MITM]
 hostname = www.pttime.org
