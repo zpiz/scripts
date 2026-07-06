@@ -1,5 +1,6 @@
 /*
 ------------------------------------------
+@Date: 2026.07.06 修改请求逻辑，优化变量内容
 @Date: 2026.05.15
 @Description: PT-rousi签到
 @Author: zpiz
@@ -29,46 +30,58 @@ let notifyMsg = [];
 let successCount = 0;
 let userCookie = loadAccounts();
 
+// ------------------------------------------------------------
+// 请求封装：统一维护固定请求头（UA/Origin/Referer 等），
+// 账号数据（rousipro_data）里只保留 token / userName，不再需要 UA。
+// ------------------------------------------------------------
+const BASE_URL = "https://rousi.pro";
+
+function buildHeaders(token, extra) {
+  return {
+    "Authorization": token,
+    "Accept": "application/json, text/plain, */*",
+    "Content-Type": "application/json",
+    "Origin": BASE_URL,
+    "Referer": `${BASE_URL}/points`,
+    "User-Agent": defaultUA(),
+    ...(extra || {})
+  };
+}
+
+async function apiRequest(token, options) {
+  const url = options.url.startsWith("http") ? options.url : `${BASE_URL}${options.url}`;
+  const method = (options.method || "GET").toUpperCase();
+  const body = options.body ? JSON.stringify(options.body) : undefined;
+  const response = await $.request({
+    url,
+    method,
+    headers: buildHeaders(token, options.headers),
+    body,
+    timeout: 15000
+  });
+  const statusCode = response.statusCode || response.status || 0;
+  const data = $.toObj(response.body, response.body);
+  if (statusCode >= 400) {
+    const message = data?.message || response.body || `HTTP ${statusCode}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
 class RousiPro {
   constructor(user, index) {
     if (typeof user === "string") user = { token: user };
     this.index = index;
     this.token = normalizeToken(user.token || user.Authorization || user.authorization || "");
     this.userName = user.userName || user.username || decodeJwtName(this.token) || `Account${index}`;
-    this.userAgent = user.userAgent || user.ua || defaultUA();
-    this.baseUrl = "https://rousi.pro";
-    this.headers = {
-      "Authorization": this.token,
-      "Accept": "application/json, text/plain, */*",
-      "Content-Type": "application/json",
-      "Origin": "https://rousi.pro",
-      "Referer": "https://rousi.pro/points",
-      "User-Agent": this.userAgent
-    };
   }
 
   log(message) {
     $.log(`\u300c${this.userName}\u300d${message}`);
   }
 
-  async request(options) {
-    const url = options.url.startsWith("http") ? options.url : `${this.baseUrl}${options.url}`;
-    const method = (options.method || "GET").toUpperCase();
-    const body = options.body ? JSON.stringify(options.body) : undefined;
-    const response = await $.request({
-      url,
-      method,
-      headers: { ...this.headers, ...(options.headers || {}) },
-      body,
-      timeout: 15000
-    });
-    const statusCode = response.statusCode || response.status || 0;
-    const data = $.toObj(response.body, response.body);
-    if (statusCode >= 400) {
-      const message = data?.message || response.body || `HTTP ${statusCode}`;
-      throw new Error(message);
-    }
-    return data;
+  request(options) {
+    return apiRequest(this.token, options);
   }
 
   async init() {
@@ -157,8 +170,7 @@ async function getCookie() {
   const body = $.toObj($response?.body, {});
   const stats = body?.data?.stats || body?.data || {};
   const userName = stats.username || stats.nickname || decodeJwtName(token) || `Account${userCookie.length + 1}`;
-  const userAgent = headers["user-agent"] || defaultUA();
-  const newData = { token, userName, userAgent };
+  const newData = { token, userName };
   const index = userCookie.findIndex(item => item.token === token || item.userName === userName);
   if (index >= 0) userCookie[index] = newData;
   else userCookie.push(newData);
@@ -209,7 +221,8 @@ function normalizeAccount(account) {
   if (typeof account === "string") return { token: normalizeToken(account) };
   const token = normalizeToken(account.token || account.Authorization || account.authorization || "");
   if (!token) return null;
-  return { ...account, token, userName: account.userName || account.username || decodeJwtName(token) };
+  // 只保留 token / userName，即使传入的是旧格式（带 userAgent/ua 等字段）也会被自动清理掉。
+  return { token, userName: account.userName || account.username || decodeJwtName(token) };
 }
 
 function normalizeToken(token) {
