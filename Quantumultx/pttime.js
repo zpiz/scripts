@@ -35,12 +35,14 @@ const altCkNames = ["PTTIME_DATA", "PTT_DATA", "ptt_data", "pttime_cookie"];
 const isRequest = typeof $request !== "undefined";
 let notifyMsg = [];
 let successCount = 0;
-let userCookie = loadAccounts();
 
 // ------------------------------------------------------------
 // 请求封装：固定请求头（UA/Referer/Sec-Fetch-* 等）统一在这里维护，
 // 账号数据（pttime_data）里只保留 cookie / userName，UA 不需要存进变量，
 // uid 也不用存——每次直接从 cookie 里的 c_secure_uid 解出来。
+// 这几个常量必须放在下面 loadAccounts() 之前：loadAccounts 在模块顶层
+// 就会立即执行并间接用到 COOKIE_KEYS，如果常量声明在它后面，
+// 在纯 Node（青龙）环境下会因为 const 的暂时性死区直接报错。
 // ------------------------------------------------------------
 const BASE_URL = "https://www.pttime.org";
 const COOKIE_KEYS = [
@@ -53,6 +55,8 @@ const COOKIE_KEYS = [
   "c_secure_uid",
   "c_lang_folder"
 ];
+
+let userCookie = loadAccounts();
 
 function buildHeaders(cookie, extra) {
   return {
