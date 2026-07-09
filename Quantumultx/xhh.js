@@ -3,12 +3,12 @@ new Env("小黑盒");
 
 抓包说明:
 Quantumult X [rewrite_local]:
-^https:\/\/api\.xiaoheihe\.cn\/ url script-request-header xiaoheihe.js
-^https:\/\/api\.xiaoheihe\.cn\/account\/info\/ url script-response-body xiaoheihe.js
+^https:\/\/api\.xiaoheihe\.cn\/ url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js
+^https:\/\/api\.xiaoheihe\.cn\/account\/info\/ url script-response-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js
 
 Surge/Loon/Stash:
-http-request ^https:\/\/api\.xiaoheihe\.cn\/ script-path=xiaoheihe.js, requires-body=false, timeout=60, tag=小黑盒Cookie
-http-response ^https:\/\/api\.xiaoheihe\.cn\/account\/info\/ script-path=xiaoheihe.js, requires-body=true, timeout=60, tag=小黑盒资料
+http-request ^https:\/\/api\.xiaoheihe\.cn\/ script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js, requires-body=false, timeout=60, tag=小黑盒Cookie
+http-response ^https:\/\/api\.xiaoheihe\.cn\/account\/info\/ script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js, requires-body=true, timeout=60, tag=小黑盒资料
 
 青龙变量:
 export xiaoheihe_data='{"cookie":"pkey=xxx;x_xhh_tokenid=xxx","heybox_id":"123456","imei":"抓包里的device_id"}'
