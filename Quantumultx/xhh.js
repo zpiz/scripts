@@ -10,10 +10,10 @@ new Env('小黑盒-分享任务');
 
 [Script]
 # 获取 Cookie
-http-response ^https:\/\/api\.xiaoheihe\.cn\/v.*\/user\/mine script-path=https://your-repo/xiaoheihe.js, requires-body=true, timeout=60, tag=小黑盒Cookie
+http-response ^https:\/\/api\.xiaoheihe\.cn\/v.*\/user\/mine script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js, requires-body=true, timeout=60, tag=小黑盒Cookie
 
 # 每日任务
-cron "0 8 * * *" script-path=https://your-repo/xiaoheihe.js, tag=小黑盒分享
+cron "0 8 * * *" script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/xhh.js, tag=小黑盒
 
 [MITM]
 hostname = api.xiaoheihe.cn
