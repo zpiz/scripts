@@ -33,7 +33,7 @@ scriptings:
     name: 同程旅行任务
     cron: {{{cron}}}
     script_url: https://raw.githubusercontent.com/chavyleung/scripts/master/tongcheng-trip/tongcheng-trip.js
-    timeout: 240
+    timeout: 2400
 mitm:
   hostnames:
     includes:
