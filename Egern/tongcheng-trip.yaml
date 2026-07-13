@@ -34,3 +34,7 @@ scriptings:
     cron: {{{cron}}}
     script_url: https://raw.githubusercontent.com/chavyleung/scripts/master/tongcheng-trip/tongcheng-trip.js
     timeout: 240
+mitm:
+  hostnames:
+    includes:
+    - app.17u.cn
