@@ -25,14 +25,14 @@ scriptings:
 - http_request:
     name: 小米抽奖 Cookie
     match: ^https:\/\/shop-api\.retail\.mi\.com\/mtop\/navi\/venue\/batch
-    script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js,img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png
+    script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js
     max_size: 0
     body_required: true
     disabled: {{{token_disabled}}}
 - schedule:
     name: 小米抽奖签到
     cron: {{{cron}}}
-    script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js,img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png
+    script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js
     timeout: 240
 mitm:
   hostnames:
