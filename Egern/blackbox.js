@@ -13,10 +13,14 @@
  * BLACKBOX_DEVICE='{"os_type":"iOS","x_os_type":"iOS","version":"1.3.376","device_id":"..."}'
  *
  * Quantumult X:
- * ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ url script-request-header 本脚本地址
+ * [rewrite_local]
+ * ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js
+ * [MITM]
+ * hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
  *
  * Surge / Loon / Stash:
- * http-request ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ script-path=本脚本地址, tag=小黑盒获取Cookie
+ * [scripts]
+ * http-request ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js, tag=小黑盒获取Cookie
  *
  * Egern:
  * scriptings:
@@ -25,7 +29,7 @@
  *       match: ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+
  *       script_url: 本脚本地址
  *
- * MITM:
+ * [MITM]
  * hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
  */
 
