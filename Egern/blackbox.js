@@ -1,36 +1,36 @@
 /*
- * 小黑盒签到与分享任务 - 多平台版
- *
- * 参考:
- * https://raw.githubusercontent.com/wqe134/xiaoheihe-autosign/refs/heads/main/%E5%B0%8F%E9%BB%91%E7%9B%92%E7%AD%BE%E5%88%B0.js
- *
- * 青龙变量:
- * BLACKBOX_COOKIE="heybox_id#pkey=xxxx;x_xhh_tokenid=xxxx"
- * 多账号可用换行或 & 分隔。
- * 可选:
- * XHH_HKEY_SERVER="http://ip:port/hkey"
- * XHH_USE_CAPTURED_DEVICE=1
- * BLACKBOX_DEVICE='{"os_type":"iOS","x_os_type":"iOS","version":"1.3.376","device_id":"..."}'
- *
- * Quantumult X:
- * [rewrite_local]
- * ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js
- * [MITM]
- * hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
- *
- * Surge / Loon / Stash:
- * [scripts]
- * http-request ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js, tag=小黑盒获取Cookie
- *
- * Egern:
- * scriptings:
- *   - http_request:
- *       name: 小黑盒获取Cookie
- *       match: ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+
- *       script_url: 本脚本地址
- *
- * [MITM]
- * hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
+ 小黑盒签到与分享任务 - 多平台版
+
+ 参考:
+ https://raw.githubusercontent.com/wqe134/xiaoheihe-autosign/refs/heads/main/%E5%B0%8F%E9%BB%91%E7%9B%92%E7%AD%BE%E5%88%B0.js
+
+ 青龙变量:
+ BLACKBOX_COOKIE="heybox_id#pkey=xxxx;x_xhh_tokenid=xxxx"
+ 多账号可用换行或 & 分隔。
+ 可选:
+ XHH_HKEY_SERVER="http://ip:port/hkey"
+ XHH_USE_CAPTURED_DEVICE=1
+ BLACKBOX_DEVICE='{"os_type":"iOS","x_os_type":"iOS","version":"1.3.376","device_id":"..."}'
+
+ Quantumult X:
+ [rewrite_local]
+ ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js
+ [MITM]
+ hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
+
+ Surge / Loon / Stash:
+ [scripts]
+ http-request ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+ script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/blackbox.js, tag=小黑盒获取Cookie
+
+ Egern:
+ scriptings:
+   - http_request:
+       name: 小黑盒获取Cookie
+       match: ^https:\/\/(?:api|data)\.xiaoheihe\.cn\/.+
+       script_url: 本脚本地址
+
+ [MITM]
+ hostname = api.xiaoheihe.cn, data.xiaoheihe.cn
  */
 
 "use strict";
