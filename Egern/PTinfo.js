@@ -222,11 +222,11 @@ function renderStats(stats) {
   return {
     type: "widget",
     backgroundColor: "#F9FAFB",
-    padding: { top: 8, leading: 10, bottom: 8, trailing: 10 },
+    padding: [8, 10, 8, 10],
     children: rows.map((row) => ({
       type: "stack",
-      direction: "horizontal",
-      alignment: "center",
+      direction: "row",
+      alignItems: "center",
       gap: 10,
       children: row.map(renderItem),
     })),
@@ -241,8 +241,8 @@ function item(icon, label, value, color) {
 function renderItem(entry) {
   return {
     type: "stack",
-    direction: "horizontal",
-    alignment: "center",
+    direction: "row",
+    alignItems: "center",
     flex: 1,
     gap: 4,
     children: [
@@ -266,8 +266,8 @@ function renderItem(entry) {
         text: String(entry.value),
         font: { size: "caption2", weight: "medium" },
         textColor: entry.color,
-        lineLimit: 1,
-        minimumScaleFactor: 0.75,
+        maxLines: 1,
+        minScale: 0.75,
       },
     ],
   };
@@ -291,7 +291,7 @@ function renderMessage(title, message) {
         text: message,
         font: { size: "caption2" },
         textColor: "#64748B",
-        lineLimit: 3,
+        maxLines: 3,
       },
     ],
   };
