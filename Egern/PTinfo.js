@@ -333,7 +333,7 @@ function renderStats(stats) {
       item("♧", "PT币", compactNumber(stats.credits), "#F97316"),
     ],
   ];
-  const flexes = [0.96, 1.12, 1.22];
+  const flexes = [1, 1.08, 1.28];
 
   return {
     type: "widget",
@@ -350,15 +350,23 @@ function renderStats(stats) {
     },
     padding: [10, 12, 10, 12],
     url: SITE,
-    children: columns.map((column, index) => ({
-      type: "stack",
-      direction: "column",
-      alignItems: "start",
-      flex: flexes[index],
-      gap: 8,
-      children: column.map(renderItem),
-    })),
-    gap: 12,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 9,
+        children: columns.map((column, index) => ({
+          type: "stack",
+          direction: "column",
+          alignItems: "start",
+          flex: flexes[index],
+          gap: 8,
+          children: column.map(renderItem),
+        })),
+      },
+    ],
+    gap: 0,
   };
 }
 
