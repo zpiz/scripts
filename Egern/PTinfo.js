@@ -249,13 +249,13 @@ function renderItem(entry) {
       {
         type: "text",
         text: entry.icon,
-        font: { size: "caption", weight: "semibold" },
+        font: { size: "caption2", weight: "semibold" },
         textColor: entry.color,
       },
       {
         type: "text",
         text: entry.label,
-        font: { size: "caption" },
+        font: { size: "caption2" },
         textColor: "#475569",
       },
       {
@@ -264,7 +264,7 @@ function renderItem(entry) {
       {
         type: "text",
         text: String(entry.value),
-        font: { size: "caption", weight: "medium" },
+        font: { size: "caption2", weight: "medium" },
         textColor: entry.color,
         lineLimit: 1,
         minimumScaleFactor: 0.75,
@@ -289,7 +289,7 @@ function renderMessage(title, message) {
       {
         type: "text",
         text: message,
-        font: { size: "caption" },
+        font: { size: "caption2" },
         textColor: "#64748B",
         lineLimit: 3,
       },
