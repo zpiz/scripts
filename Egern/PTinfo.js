@@ -316,24 +316,23 @@ function compactNumber(value) {
 
 function renderStats(stats) {
   const colors = themeColors();
-  const columns = [
+  const rows = [
     [
       item("↗", "分享率", formatRatio(stats.ratio), "#3478F6"),
-      item("◦", "做种数", compactNumber(stats.seedingCount), colors.mutedIcon),
-      item("◦", "下载数", compactNumber(stats.leechingCount), colors.mutedIcon),
-    ],
-    [
       item("☆", "等级", `Lv.${stats.level}`, "#F6B500"),
-      item("↑", "上传", formatBytes(stats.uploaded), "#22C55E"),
-      item("↓", "下载", formatBytes(stats.downloaded), "#EF4444"),
+      item("◼", "做种体积", formatBytes(stats.seedingSize), colors.mutedIcon),
     ],
     [
-      item("◼", "做种体积", formatBytes(stats.seedingSize), colors.mutedIcon, true),
+      item("◦", "做种数", compactNumber(stats.seedingCount), colors.mutedIcon),
+      item("↑", "上传", formatBytes(stats.uploaded), "#22C55E"),
       item("♨", "魔力值", compactNumber(stats.karma), "#A855F7"),
+    ],
+    [
+      item("◦", "下载数", compactNumber(stats.leechingCount), colors.mutedIcon),
+      item("↓", "下载", formatBytes(stats.downloaded), "#EF4444"),
       item("♧", "PT币", compactNumber(stats.credits), "#F97316"),
     ],
   ];
-  const flexes = [1, 1.08, 1.28];
 
   return {
     type: "widget",
@@ -348,104 +347,59 @@ function renderStats(stats) {
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 },
     },
-    padding: [10, 12, 10, 12],
+    padding: [10, 14, 10, 14],
     url: SITE,
+    children: rows.map((row) => ({
+      type: "stack",
+      direction: "row",
+      alignItems: "center",
+      gap: 12,
+      children: row.map(renderTile),
+    })),
+    gap: 8,
+  };
+}
+
+function item(icon, label, value, color) {
+  return { icon, label, value, color };
+}
+
+function renderTile(entry) {
+  const colors = themeColors();
+  return {
+    type: "stack",
+    direction: "column",
+    alignItems: "start",
+    width: 0,
+    flex: 1,
+    gap: 2,
     children: [
       {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 9,
-        children: columns.map((column, index) => ({
-          type: "stack",
-          direction: "column",
-          alignItems: "start",
-          flex: flexes[index],
-          gap: 8,
-          children: column.map(renderItem),
-        })),
-      },
-    ],
-    gap: 0,
-  };
-}
-
-function item(icon, label, value, color, stacked = false) {
-  return { icon, label, value, color, stacked };
-}
-
-function renderItem(entry) {
-  const colors = themeColors();
-  if (entry.stacked) {
-    return {
-      type: "stack",
-      direction: "column",
-      alignItems: "start",
-      width: 0,
-      flex: 1,
-      gap: 1,
-      children: [
-        {
-          type: "stack",
-          direction: "row",
-          alignItems: "center",
-          gap: 4,
-          children: [
-            {
-              type: "text",
-              text: entry.icon,
-              font: { size: "caption2", weight: "semibold" },
-              textColor: entry.color,
-            },
-            {
-              type: "text",
-              text: entry.label,
-              font: { size: "caption2" },
-              textColor: colors.label,
-              maxLines: 1,
-              minScale: 0.8,
-            },
-          ],
-        },
-        {
-          type: "text",
-          text: String(entry.value),
-          font: { size: "caption1", weight: "medium" },
-          textColor: entry.color,
-          maxLines: 1,
-          minScale: 0.75,
-        },
-      ],
-    };
-  }
-
-  return {
-    type: "stack",
-    direction: "row",
-    alignItems: "center",
-    width: 0,
-    flex: 1,
-    gap: 4,
-    children: [
-      {
-        type: "text",
-        text: entry.icon,
-        font: { size: "caption2", weight: "semibold" },
-        textColor: entry.color,
-      },
-      {
-        type: "text",
-        text: entry.label,
-        font: { size: "caption2" },
-        textColor: colors.label,
-      },
-      {
-        type: "spacer",
+        gap: 4,
+        children: [
+          {
+            type: "text",
+            text: entry.icon,
+            font: { size: "caption2", weight: "semibold" },
+            textColor: entry.color,
+          },
+          {
+            type: "text",
+            text: entry.label,
+            font: { size: "caption2" },
+            textColor: colors.label,
+            maxLines: 1,
+            minScale: 0.75,
+          },
+        ],
       },
       {
         type: "text",
         text: String(entry.value),
-        font: { size: "caption2", weight: "medium" },
+        font: { size: "caption1", weight: "semibold" },
         textColor: entry.color,
         maxLines: 1,
         minScale: 0.75,
