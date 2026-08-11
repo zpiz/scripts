@@ -1,23 +1,24 @@
-/**
- *
- * hostname = app.17u.cn
- *
- * # QuanX 抓包
- * ^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex url script-request-header 本脚本地址
- * ^https:\/\/app\.17u\.cn\/welfarecenter\/index\/sign url script-request-body 本脚本地址
- * ^https:\/\/app\.17u\.cn\/welfarecenter\/task\/taskList url script-request-header 本脚本地址
- *
- * # 青龙变量
- * 单账号:
- * tongcheng_trip_signheader='{"appToken":"xxx","sec-token":"xxx","device":"xxx"}'
- *
- * 多账号推荐 JSON 数组:
- * tongcheng_trip_signheader='[{"name":"账号A","headers":{...}},{"name":"账号B","headers":{...}}]'
- *
- * 可选:
- * tongcheng_trip_signrequest='{"url":"https://app.17u.cn/welfarecenter/index/sign?version=11.3.8","headers":{},"body":"{}"}'
- */
+/*
 
+hostname = app.17u.cn
+
+QuanX 抓包
+[rewrite_local]
+^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+^https:\/\/app\.17u\.cn\/welfarecenter\/index\/sign url script-request-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+^https:\/\/app\.17u\.cn\/welfarecenter\/task\/taskList url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+[MITM]
+hostname = app.17u.cn
+
+# 青龙变量
+单账号:
+tongcheng_trip_signheader='{"appToken":"xxx","sec-token":"xxx","device":"xxx"}'
+多账号推荐 JSON 数组:
+tongcheng_trip_signheader='[{"name":"账号A","headers":{...}},{"name":"账号B","headers":{...}}]'
+可选:
+tongcheng_trip_signrequest='{"url":"https://app.17u.cn/welfarecenter/index/sign?version=11.3.8","headers":{},"body":"{}"}'
+
+*/
 
 const $ = new Env('同程旅行')
 const BASE_URL = 'https://app.17u.cn/welfarecenter'
