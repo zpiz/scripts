@@ -20,6 +20,14 @@ compat_arguments_schema:
     name: "执行时间"
     description: "自定义任务执行时间"
     default_value: "39 7 * * *"
+  cron1:
+    name: "金币任务执行时间"
+    description: "自定义任务执行时间"
+    default_value: "* 9-10 * * *"
+  cron2:
+    name: "红包雨执行时间"
+    description: "自定义任务执行时间"
+    default_value: "9 0,8,12,16,20,22 * * *"  
 dns: {}
 
 scriptings:
