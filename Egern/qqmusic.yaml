@@ -33,7 +33,7 @@ dns: {}
 scriptings:
 - http_request:
     name: QQ音乐 Cookie
-    match: "^https:\\/\\/u6\\.y\\.qq\\.com\\/cgi-bin\\/musics\\.fcg\\?.*(EveryDaySignLvzScore|GetSignInSummary)"
+    match: ^https:\/\/u6\.y\.qq\.com\/cgi-bin\/musics\.fcg\?.*(EveryDaySignLvzScore|GetSignInSummary)
     script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/qqmusic/qqmusic.js
     max_size: 0
     body_required: false
@@ -45,12 +45,12 @@ scriptings:
     timeout: 60
 - schedule:
     name: QQ音乐定时金币
-    cron: {{{cron1}}}
+    cron: "{{{cron1}}}"
     script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/qqmusic/qqmusic.js
     timeout: 60
 - schedule:
     name: QQ音乐红包雨
-    cron: {{{cron2}}}
+    cron: "{{{cron2}}}"
     script_url: https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/qqmusic/qqmusic.js
     timeout: 60
         
