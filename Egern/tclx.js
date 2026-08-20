@@ -4,9 +4,7 @@ hostname = app.17u.cn
 
 QuanX 抓包
 [rewrite_local]
-#^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
-#^https:\/\/app\.17u\.cn\/welfarecenter\/index\/sign url script-request-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
-^https:\/\/app\.17u\.cn\/welfarecenter\/task\/taskList url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+^https:\/\/app\.17u\.cn\/welfarecenter\/(index\/(signIndex|sign)|task\/taskList) url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
 [MITM]
 hostname = app.17u.cn
 
