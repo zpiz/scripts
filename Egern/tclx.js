@@ -2,9 +2,10 @@
 
 hostname = app.17u.cn
 
-QuanX 抓包
+QuanX 抓包（只拦截 signIndex；其余接口绝不能写账号变量）
 [rewrite_local]
-^https:\/\/app\.17u\.cn\/welfarecenter\/(index\/(signIndex|sign)|task\/taskList) url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tclx.js
+^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex(?:\?|$) url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+
 [MITM]
 hostname = app.17u.cn
 
@@ -581,34 +582,25 @@ async function runAllAccounts() {
   $.msg('✈️ 同程旅行签到结果', '', results.join('\n\n').trim())
 }
 
-// 入口：MiTM 时保存 Cookie，否则执行签到
-const isMitmRequest =
+// 入口：只有 signIndex 可写账号变量。
+// QX 会并发触发多个 rewrite 实例；若 task/sign 也读写整个数组，旧实例会覆盖新账号。
+const isRequest =
   typeof $request !== 'undefined' &&
   $request &&
   typeof $request.url === 'string' &&
-  $request.headers &&
-  matchCapture($request.url) !== null
-if (isMitmRequest) {
+  $request.headers
+const isMitmRequest = isRequest && matchCapture($request.url) === CAPTURE_SIGN_INDEX
+if (isRequest) {
   if ($request.method !== 'OPTIONS') {
-    const captureType = matchCapture($request.url)
-    const headers = normalizeHeaders($request.headers)
-    let signRequest = null
-    if (captureType === CAPTURE_SIGN) {
-      signRequest = {
-        url: $request.url,
-        method: $request.method || 'POST',
-        body: $request.body || ''
+    if (isMitmRequest) {
+      const saved = saveAccountFromMitm(normalizeHeaders($request.headers))
+      if (!saved.saved) {
+        $.msg($.name, '未保存账号', saved.reason || '请求数据不完整')
+      } else {
+        $.msg($.name, '同程旅行账户已更新', `仅从 signIndex 保存会话，当前共 ${saved.total} 个账号`)
       }
-    }
-    const saved = saveAccountFromMitm(headers, signRequest)
-    if (!saved.saved) {
-      $.msg($.name, '未保存账号', saved.reason || '请求数据不完整')
-    } else if (captureType === CAPTURE_SIGN) {
-      $.msg($.name, '获取同程旅行签到请求成功', `已保存签到路径和 body，当前共 ${saved.total} 个账号`)
-    } else if (captureType === CAPTURE_TASK_LIST) {
-      $.msg($.name, '获取同程旅行任务请求成功', `已保存任务请求头，当前共 ${saved.total} 个账号`)
     } else {
-      $.msg($.name, '获取同程旅行账户成功', `已保存 signIndex 请求头，当前共 ${saved.total} 个账号`)
+      $.done()
     }
     $.done()
   } else {
