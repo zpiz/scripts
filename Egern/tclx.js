@@ -4,7 +4,7 @@ hostname = app.17u.cn
 
 QuanX 抓包（只拦截 signIndex；其余接口绝不能写账号变量）
 [rewrite_local]
-^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex(?:\?|$) url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tongcheng.js
+^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex(?:\?|$) url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tclx.js
 
 [MITM]
 hostname = app.17u.cn
