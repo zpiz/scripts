@@ -25,14 +25,14 @@ scriptings:
 - http_request:
     name: 同程cookie
     match: ^https:\/\/app\.17u\.cn\/welfarecenter\/index\/signIndex
-    script_url: https://raw.githubusercontent.com/chavyleung/scripts/master/tongcheng-trip/tongcheng-trip.js
+    script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tclx.js
     max_size: 0
     body_required: true
     disabled: {{{token_disabled}}}
 - schedule:
     name: 同程旅行任务
     cron: {{{cron}}}
-    script_url: https://raw.githubusercontent.com/chavyleung/scripts/master/tongcheng-trip/tongcheng-trip.js
+    script_url: https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/tclx.js
     timeout: 2400
 mitm:
   hostnames:
