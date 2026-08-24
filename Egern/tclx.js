@@ -560,11 +560,43 @@ async function runSignIn() {
   return $.accountResult
 }
 
+// ===================== 青龙通知模块（sendNotify.js） =====================
+// Node / 青龙环境下自动经同目录的 sendNotify.js 推送结果，兼容不同导出形态
+// （命名导出 sendNotify / default / 直接导出一个函数）。QX/Surge 等环境仍走 $.msg，互不干扰。
+async function qlSendNotify(title, body) {
+  if (typeof process === 'undefined' || !process.env) return false
+  const candidatePaths = [
+    './sendNotify',
+    '../sendNotify',
+    '/ql/data/scripts/sendNotify',
+    '/ql/scripts/sendNotify',
+    'sendNotify'
+  ]
+  for (const p of candidatePaths) {
+    try {
+      const mod = require(p)
+      const fn = mod && (mod.sendNotify || mod.default || mod)
+      if (typeof fn === 'function') {
+        await fn(title, body)
+        $.log(`青龙通知已推送：${title}`)
+        return true
+      }
+      $.log(`路径 ${p} 已加载，但未找到可用的 sendNotify 函数`)
+    } catch (e) {
+      $.log(`尝试加载 sendNotify(${p}) 失败：${e.message || e}`)
+    }
+  }
+  $.log('未在常见路径找到可用的 sendNotify.js，青龙通知未发送（请确认同目录/脚本根目录存在 sendNotify.js）')
+  return false
+}
+
 async function runAllAccounts() {
   const accounts = parseAccounts()
   if (!accounts.length) {
-    $.log('未获取到 Cookie，请先通过 MiTM 获取：在 APP 打开「领福利」')
-    $.msg($.name, '', `请在青龙添加环境变量 ${KEY_SIGNHEADER} 或 ${ENV_SIGNHEADER}`)
+    const noAccountMsg = `请在青龙添加环境变量 ${KEY_SIGNHEADER} 或 ${ENV_SIGNHEADER}`
+    $.log('未获取到 Cookie，' + noAccountMsg)
+    $.msg($.name, '', noAccountMsg)
+    if ($.isNode()) await qlSendNotify($.name, noAccountMsg)
     return
   }
 
@@ -579,7 +611,9 @@ async function runAllAccounts() {
     if (result) results.push(result.trim())
   }
 
-  $.msg('✈️ 同程旅行签到结果', '', results.join('\n\n').trim())
+  const notifyContent = results.join('\n\n').trim() || '脚本执行完成，未获取到任何结果'
+  $.msg('✈️ 同程旅行签到结果', '', notifyContent)
+  if ($.isNode()) await qlSendNotify($.name, notifyContent)
 }
 
 // 入口：只有 signIndex 可写账号变量。
