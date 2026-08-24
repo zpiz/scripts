@@ -11,10 +11,8 @@ hostname = app.17u.cn
 # 青龙变量
 单账号:
 tongcheng_trip_signheader='{"appToken":"xxx","sec-token":"xxx","device":"xxx"}'
-多账号推荐 JSON 数组:
-tongcheng_trip_signheader='[{"name":"账号A","headers":{...}},{"name":"账号B","headers":{...}}]'
-可选:
-tongcheng_trip_signrequest='{"url":"https://app.17u.cn/welfarecenter/index/sign?version=11.3.8","headers":{},"body":"{}"}'
+多账号 JSON 数组（仅此一个变量）:
+tongcheng_trip_signheader='[{"id":"member:123","headers":{"apptoken":"xxx","sec-token":"xxx","device":"xxx","cookie":"xxx"},"sign":{"url":"/index/sign","method":"POST","body":"{}"}}]'
 
 */
 
@@ -31,9 +29,7 @@ const CAPTURE_TASK_LIST = '/task/taskList'
 const CAPTURE_ENDPOINTS = [CAPTURE_SIGN_INDEX, CAPTURE_SIGN, CAPTURE_TASK_LIST]
 
 const KEY_SIGNHEADER = 'tongcheng_trip_signheader'
-const KEY_SIGNREQUEST = 'tongcheng_trip_signrequest'
 const ENV_SIGNHEADER = 'TONGCHENG_TRIP_SIGNHEADER'
-const ENV_SIGNREQUEST = 'TONGCHENG_TRIP_SIGNREQUEST'
 const ENV_VERSION = 'TONGCHENG_TRIP_VERSION'
 const DEFAULT_VERSION = '11.3.8'
 const SIGN_OK_CODE = 2200
@@ -117,8 +113,8 @@ function parseHeaderText(value) {
   return Object.keys(headers).length ? headers : null
 }
 
-function normalizeHeaders(headers = {}, options = {}) {
-  const next = { ...headers }
+function normalizeHeaders(headers = {}) {
+  const next = {}
   const dropKeys = new Set([
     'host',
     'content-length',
@@ -126,18 +122,12 @@ function normalizeHeaders(headers = {}, options = {}) {
     'connection',
     'traceparent'
   ])
-  if (!options.keepVolatileHeaders) {
-    ;[
-      'aenc',
-      'denc',
-      'dp',
-      'reqdata',
-      'secsign',
-      'apmat'
-    ].forEach((key) => dropKeys.add(key))
-  }
-  Object.keys(next).forEach((key) => {
-    if (dropKeys.has(key.toLowerCase())) delete next[key]
+  ;['aenc', 'denc', 'dp', 'reqdata', 'secsign', 'apmat'].forEach((key) => dropKeys.add(key))
+  Object.entries(headers || {}).forEach(([key, value]) => {
+    const lowerKey = key.toLowerCase()
+    if (!dropKeys.has(lowerKey) && value !== undefined && value !== null && value !== '') {
+      next[lowerKey] = value
+    }
   })
   return next
 }
@@ -183,17 +173,45 @@ function getSaviorInfo(headers) {
   return safeJsonParse(raw, null) || safeJsonParse(safeDecodeURIComponent(raw), null) || {}
 }
 
-function getAccountIdentity(headers) {
+function getAccountIds(headers) {
   const saviorInfo = getSaviorInfo(headers)
   const first = (...vals) => vals.map((v) => String(v ?? '').trim()).find(Boolean) || ''
-  // 只取稳定标识：memberId / refId / device。
-  // 关键：绝不能把 token（sec-token / security-token / apptoken）混进 identity，
-  // 因为 token 每隔几分钟就会自动刷新，一旦混进去，同一账号重新抓包时 identity 就变了，
-  // 会被误判成新账号，导致两个账号变成三个变量。
-  const memberId = first(getHeader(headers, 'memberid'), saviorInfo.memberid)
-  const refId = first(getHeader(headers, 'refid'), saviorInfo.refid)
-  const device = first(getHeader(headers, 'device'), getHeader(headers, 'deviceid'), saviorInfo.tc_deviceid)
-  return [memberId, refId, device].filter(Boolean).join('|')
+  const cookie = getHeader(headers, 'cookie')
+  const memberId = first(getHeader(headers, 'memberid'), saviorInfo.memberId, saviorInfo.memberid, saviorInfo.userId, saviorInfo.userid)
+  const refId = first(getHeader(headers, 'refid'), saviorInfo.refId, saviorInfo.refid)
+  const uid = first(getCookieItem(cookie, 'uid'), getCookieItem(cookie, 'userId'), getCookieItem(cookie, 'memberId'))
+
+  // 账号 ID 不能包含 token 或 device；任一稳定 ID 相同即可视为同一账号。
+  return [...new Set([
+    memberId && `member:${memberId}`,
+    refId && `ref:${refId}`,
+    uid && `uid:${uid}`
+  ].filter(Boolean))]
+}
+
+function findAccountIndex(accounts, headers) {
+  const incomingIds = getAccountIds(headers)
+  if (!incomingIds.length) return -1
+  return accounts.findIndex((account) => {
+    const savedIds = new Set([account.id, ...getAccountIds(account.headers)].filter(Boolean))
+    return incomingIds.some((id) => savedIds.has(id))
+  })
+}
+
+function mergeHeaders(oldHeaders = {}, newHeaders = {}) {
+  // 新抓包覆盖已变更的 token/Cookie；旧字段只在本次请求未携带时保留。
+  return normalizeHeaders({ ...normalizeHeaders(oldHeaders), ...normalizeHeaders(newHeaders) })
+}
+
+function compactSignRequest(request) {
+  if (!request) return null
+  const url = String(request.url || '/index/sign')
+    .replace(new RegExp(`^https://${escapeRegExp(HOST)}${escapeRegExp(WELFARE_BASE)}`), '')
+  return {
+    url: url.startsWith('/') ? url : '/index/sign',
+    method: request.method || 'POST',
+    body: request.body || ''
+  }
 }
 
 function getAccountName(account, index, total) {
@@ -220,29 +238,27 @@ function normalizeAccountItem(item) {
   if (!item) return null
 
   const headers = item.headers || item.header || item
-  const signRequest = item.signRequest || item.signrequest || item.sign || null
+  const sign = compactSignRequest(item.sign || item.signRequest || item.signrequest)
   const account = {
+    id: item.id || '',
     name: item.name || item.remark || item.label || '',
     headers: normalizeHeaders(headers),
-    signRequest
+    sign
   }
+  if (!account.id) account.id = getAccountIds(account.headers)[0] || ''
   return account.headers && Object.keys(account.headers).length ? account : null
 }
 
 function parseAccounts() {
   const rawHeaders = readData(KEY_SIGNHEADER, ENV_SIGNHEADER)
-  const rawSignReq = readData(KEY_SIGNREQUEST, ENV_SIGNREQUEST)
   const parsedHeaders = parseHeaderText(rawHeaders)
-  const parsedSignReq = safeJsonParse(rawSignReq, null)
 
   if (!parsedHeaders) return []
 
-  const signReqs = parsedSignReq ? asArray(parsedSignReq) : []
   return asArray(parsedHeaders)
-    .map((item, index) => {
+    .map((item) => {
       const account = normalizeAccountItem(item)
       if (!account) return null
-      account.signRequest = account.signRequest || signReqs[index] || (signReqs.length === 1 ? signReqs[0] : null)
       return account
     })
     .filter((account) => account && account.headers && Object.keys(account.headers).length)
@@ -257,24 +273,24 @@ function getStoredAccounts() {
 
 function saveAccountFromMitm(headers, signRequest = null) {
   const accounts = getStoredAccounts()
-  const nextIdentity = getAccountIdentity(headers)
-  const index = accounts.findIndex((account) => {
-    const identity = getAccountIdentity(account.headers)
-    return identity && nextIdentity && identity === nextIdentity
-  })
-  const nextAccount = normalizeAccountItem({
-    ...(index > -1 ? accounts[index] : {}),
-    headers,
-    signRequest: signRequest || (index > -1 ? accounts[index].signRequest : null)
-  })
-  if (!nextAccount) return { saved: false, total: accounts.length, index: -1 }
+  const accountIds = getAccountIds(headers)
+  if (!accountIds.length) {
+    return { saved: false, total: accounts.length, index: -1, reason: '请求中未发现稳定账号 ID' }
+  }
+
+  const index = findAccountIndex(accounts, headers)
+  const oldAccount = index > -1 ? accounts[index] : null
+  const nextAccount = {
+    id: oldAccount?.id || accountIds[0],
+    name: oldAccount?.name || '',
+    headers: mergeHeaders(oldAccount?.headers, headers),
+    sign: signRequest ? compactSignRequest(signRequest) : oldAccount?.sign || null
+  }
 
   if (index > -1) accounts[index] = nextAccount
   else accounts.push(nextAccount)
 
   $.setdata(JSON.stringify(accounts), KEY_SIGNHEADER)
-  const signReqs = accounts.map((account) => account.signRequest || null)
-  if (signReqs.some(Boolean)) $.setdata(JSON.stringify(signReqs), KEY_SIGNREQUEST)
   return { saved: true, total: accounts.length, index: index > -1 ? index : accounts.length - 1 }
 }
 
@@ -292,8 +308,8 @@ function withVersion(path) {
 function postApi(path, body, headers, options = {}) {
   return new Promise((resolve) => {
     const isJsonObject = typeof body === 'object' && body !== null
-    const reqHeaders = normalizeHeaders(headers, { keepVolatileHeaders: options.keepVolatileHeaders })
-    if (isJsonObject || !reqHeaders['content-type'] && !reqHeaders['Content-Type']) {
+    const reqHeaders = normalizeHeaders(headers)
+    if (isJsonObject || !reqHeaders['content-type']) {
       reqHeaders['content-type'] = 'application/json'
     }
     const opts = {
@@ -328,13 +344,13 @@ function signIndex() {
 async function doSignIn() {
   const todayDate = getTodayDate()
   const fallbackBody = { type: 1, day: todayDate }
-  const savedSignReq = $.signRequest
+  const savedSign = $.sign
 
-  if (savedSignReq && savedSignReq.headers) {
-    const savedHeaders = { ...$.headers, ...savedSignReq.headers }
-    const savedBody = savedSignReq.body || fallbackBody
+  if (savedSign) {
+    const savedBody = savedSign.body || fallbackBody
     $.log(`用户【${$.phone}】 - 使用已保存的真实签到请求尝试签到`)
-    const savedRes = await postApi(savedSignReq.url || '/index/sign', savedBody, savedHeaders, { keepVolatileHeaders: true })
+    // 始终使用账号当前 headers，避免旧签到请求中的过期 token 覆盖新抓包数据。
+    const savedRes = await postApi(savedSign.url || '/index/sign', savedBody, $.headers)
     if (savedRes && savedRes.code === SIGN_OK_CODE) return savedRes
     $.log(`用户【${$.phone}】 - 真实签到请求失败，回退为默认签到参数：${getRespMsg(savedRes)}`)
   }
@@ -555,7 +571,7 @@ async function runAllAccounts() {
   for (let index = 0; index < accounts.length; index++) {
     const account = accounts[index]
     $.headers = normalizeHeaders(account.headers)
-    $.signRequest = account.signRequest
+    $.sign = account.sign
     $.phone = getAccountName(account, index, accounts.length)
     $.log(`\n开始执行用户【${$.phone}】`)
     const result = await runSignIn()
@@ -576,19 +592,19 @@ if (isMitmRequest) {
   if ($request.method !== 'OPTIONS') {
     const captureType = matchCapture($request.url)
     const headers = normalizeHeaders($request.headers)
-    const rawHeaders = normalizeHeaders($request.headers, { keepVolatileHeaders: true })
     let signRequest = null
     if (captureType === CAPTURE_SIGN) {
       signRequest = {
         url: $request.url,
         method: $request.method || 'POST',
-        headers: rawHeaders,
         body: $request.body || ''
       }
     }
     const saved = saveAccountFromMitm(headers, signRequest)
-    if (captureType === CAPTURE_SIGN) {
-      $.msg($.name, '获取同程旅行签到请求成功', `已保存 sign 请求头和 body，当前共 ${saved.total} 个账号`)
+    if (!saved.saved) {
+      $.msg($.name, '未保存账号', saved.reason || '请求数据不完整')
+    } else if (captureType === CAPTURE_SIGN) {
+      $.msg($.name, '获取同程旅行签到请求成功', `已保存签到路径和 body，当前共 ${saved.total} 个账号`)
     } else if (captureType === CAPTURE_TASK_LIST) {
       $.msg($.name, '获取同程旅行任务请求成功', `已保存任务请求头，当前共 ${saved.total} 个账号`)
     } else {
