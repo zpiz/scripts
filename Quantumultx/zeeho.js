@@ -49,10 +49,11 @@ let userCount = 0;
 
 // 调试
 $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'false';
-// 为多用户准备的通知数组
-$.notifyList = [];
-// 为通知准备的空数组
+// 为通知准备的空数组（改为全局汇总）
 $.notifyMsg = [];
+// 统计成功/失败账号数
+$.successCount = 0;
+$.failCount = 0;
 
 //---------------------- 自定义变量区域 -----------------------------------
 //脚本入口函数main()
@@ -63,62 +64,71 @@ async function main() {
       console.log(`🔷账号${user.index} >> Start work`)
       console.log(`随机延迟${user.getRandomTime()}ms`);
       // 签到
-      const integral = await user.signin();
-      let integralScore = 0
+      const integral = (await user.signin()) || 0;
+      let integralScore = 0;
       if (user.ckStatus) {
         await $.wait(user.getRandomTime());
         // 查看签到记录
         const {
-  count = 0,
-  prize = 0,
-  prizes = 0
-} = await user.getSignRecord() || {}
+          count = 0,
+          prize = 0,
+          prizes = 0
+        } = (await user.getSignRecord()) || {};
 
-await $.wait(user.getRandomTime());
+        await $.wait(user.getRandomTime());
 
-if(prizes >= 30) {
+        if (prizes >= 30) {
+          // 盲盒抽奖
+          integralScore = await user.lottery();
+          await $.wait(user.getRandomTime());
+        }
 
-  // 盲盒抽奖
-  integralScore = await user.lottery()
+        // 互动任务：发帖 / 点赞 / 分享 各 1 分，按实际完成结果计分
+        let interactGain = 0;
 
-  await $.wait(user.getRandomTime());
-
-}
-        // 创建动态
-        let postId = await user.createArticle()
+        // 创建动态（每日首次发帖）
+        let postId = await user.createArticle();
+        if (postId) interactGain += 1;
         await $.wait(user.getRandomTime());
         // 获取动态列表
-        postId = postId || await user.getArticles()
+        postId = postId || (await user.getArticles());
         if (!postId) {
           $.log(`\u26d4\ufe0f \u83b7\u53d6\u52a8\u6001\u5931\u8d25: \u672a\u83b7\u53d6\u5230\u52a8\u6001ID\uff0c\u8df3\u8fc7\u4e92\u52a8\u4efb\u52a1`);
+          $.notifyMsg.push(`❌账号「${user.userName || user.index}」执行失败: 未获取到动态ID`);
+          $.failCount++;
           continue;
         }
         await $.wait(user.getRandomTime());
         // 点赞
-        await user.thumbsUp(postId)
+        if (await user.thumbsUp(postId)) interactGain += 1;
+        await $.wait(user.getRandomTime());
+        // 评论（评论不加分，但分享前必须有评论）
+        await user.comment(postId);
         await $.wait(user.getRandomTime());
         // 分享动态
-        await user.comment(postId)
+        if (await user.share(postId)) interactGain += 1;
         await $.wait(user.getRandomTime());
-        await user.share(postId)
-        await $.wait(user.getRandomTime());
-        
+
         // 删除动态
-        await user.deletePost(postId)
+        await user.deletePost(postId);
         await $.wait(user.getRandomTime());
-        //查询待领取积分
+        // 查询当前积分（总分）
         const score = await user.getSignInfo();
-        $.title = `本次运行共获得${(integral + integralScore + 3)}积分`;
-        //DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
-        DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${prizes}天`);
+
+        // 本次增加积分 = 签到 + 盲盒 + 互动任务
+        const gain = (integral || 0) + (integralScore || 0) + interactGain;
+        // 原积分（总分反推）
+        const oldScore = typeof score === "number" ? score - gain : "未知";
+        DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
+
+        // 汇总到总通知
+        $.notifyMsg.push(`「${user.userName}」积分: ${oldScore}+${gain}, 累签: ${count}天`);
+        $.successCount++;
       } else {
-        //将ck过期消息存入消息数组
-        $.notifyMsg.push(`❌账号${user.userName || user.index} >> Check ck error!`)
+        // ck 失效
+        $.notifyMsg.push(`❌账号「${user.userName || user.index}」执行失败: ck失效或请求异常`);
+        $.failCount++;
       }
-      //账号通知
-      $.notifyList.push({ "id": user.index, "avatar": user.avatar, "message": $.notifyMsg });
-      //清空数组
-      $.notifyMsg = [];
     }
   } catch (e) {
     $.log(`⛔️ main run error => ${e}`);
@@ -230,8 +240,9 @@ class UserInfo {
 
       const list = res?.data?.nowSignDetailVos || [];
 
-      // 今日日期
-      const today = new Date().toISOString().slice(0, 10);
+      // 今日日期（本地时区，不能用 toISOString，否则 08:00 前会算成前一天 → 累签归零）
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
       // 找到今天索引
       const todayIndex = list.findIndex(
@@ -413,14 +424,17 @@ class UserInfo {
         }
       }
       const res = await this.fetch(opts);
-      if (res?.code == '10000') {
+      const ok = res?.code == '10000';
+      if (ok) {
         $.log(`\u2705 \u70b9\u8d5e\u52a8\u6001: ${postId}`)
       } else {
         $.log(`\u26d4\ufe0f \u70b9\u8d5e\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
+      return ok; // 用于统计互动任务积分（已完成/重复则不计分）
     } catch (e) {
       this.ckStatus = false;
       $.log(`⛔️ 点赞动态失败! ${e}`);
+      return false;
     }
   }
   // ????
@@ -433,15 +447,18 @@ class UserInfo {
         dataType: "json"
       }
       let res = await this.fetch(opts);
-      if (res?.code == '10000') {
+      const ok = res?.code == '10000';
+      if (ok) {
         $.log(`\u2705 \u5206\u4eab\u52a8\u6001: ${postId}`)
       } else {
         $.log(`\u26d4\ufe0f \u5206\u4eab\u52a8\u6001\u5931\u8d25: ${res?.message}`);
       }
       await this.adjustByShare();
+      return ok; // 用于统计互动任务积分（已完成/重复则不计分）
     } catch (e) {
       this.ckStatus = false;
       $.log(`\u26d4\ufe0f \u5206\u4eab\u52a8\u6001\u5931\u8d25: ${e}`);
+      return false;
     }
   }
   // ????
@@ -660,19 +677,23 @@ function debug(t, l = 'debug') {
     $.log(`\n-----------${l}------------\n`)
   }
 };
-//对多账号通知进行兼容
-async function SendMsgList(l) {
-  const msg = [
-    ...(l || []).map(u => u?.message?.join('\n')).filter(Boolean),
-    ...($.notifyMsg || []).filter(Boolean)
-  ].join('\n');
-  await SendMsg(msg);
-};
-//账号通知
-async function SendMsg(n, o) {
-  n && (0 < Notify ? $.isNode() ? await notify.sendNotify($.name, n) : $.msg($.name, $.title || "", n, {
-    "media-url": o
-  }) : console.log(n))
+//汇总通知（summary=汇总标题, detail=每账号明细）
+async function SendMsg(summary, detail) {
+  if (!summary && !detail) return;
+  // Notify=0 关闭通知时只打印
+  if (!(0 < Notify)) {
+    console.log([summary, detail].filter(Boolean).join('\n'));
+    return;
+  }
+
+  if ($.isNode()) {
+    // Node 环境：整合成一条文本推送
+    const text = [summary, detail].filter(Boolean).join("\n");
+    await notify.sendNotify($.name, text);
+  } else {
+    // Surge / QuanX / Loon / Shadowrocket
+    $.msg($.name, summary || "", detail || "");
+  }
 };
 //将请求头转换为小写
 function ObjectKeys2LowerCase(obj) { return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v])) }
@@ -693,7 +714,17 @@ function ObjectKeys2LowerCase(obj) { return Object.fromEntries(Object.entries(ob
 })()
   .catch(e => $.notifyMsg.push(e.message || e))
   .finally(async () => {
-    await SendMsgList($.notifyList);
+    // 构建总通知
+    const total = userList.length;
+    const success = $.successCount || 0;
+    const fail = $.failCount || total - success;
+
+    const summary = `共${total}个账号, 成功${success}个, 失败${fail}个`;
+    const body = $.notifyMsg.length ? $.notifyMsg.join("\n") : "";
+
+    // 抓包模式($request)无正文时不推送，避免空汇总通知
+    if (body || typeof $request === "undefined") await SendMsg(summary, body);
+
     $.done({ ok: 1 });
   });
 /** ---------------------------------固定不动区域----------------------------------------- */
