@@ -119,7 +119,6 @@ async function main() {
         const gain = (integral || 0) + (integralScore || 0) + interactGain;
         // 原积分（总分反推）
         const oldScore = typeof score === "number" ? score - gain : "未知";
-        DoubleLog(`「${user.userName}」当前积分:${score}分,累计签到:${count}天`);
 
         // 汇总到总通知
         $.notifyMsg.push(`「${user.userName}」积分: ${oldScore}+${gain}, 累签: ${count}天`);
