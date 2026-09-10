@@ -7,17 +7,17 @@
  *
  * ============== Surge ==============
  * [Script]
- * 网易大神会员外卖券 = type=cron,cronexp=30 8 * * *,timeout=300,script-path=wyds_super_coupon.js
+ * 网易大神会员外卖券 = type=cron,cronexp=30 8 * * *,timeout=300,script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/wyds.js
  *
  * [MITM]
  * hostname = inf.ds.163.com, vip.ds.163.com
  *
  * ============== QuantumultX ==============
  * [task_local]
- * 30 8 * * * wyds_super_coupon.js, tag=网易大神会员外卖券, enabled=true
+ * 30 8 * * * https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/wyds.js, tag=网易大神会员外卖券, enabled=true
  *
  * [rewrite_local]
- * ^https://inf\.ds\.163\.com/v1/web/base/mine/userInfo url script-request-header wyds_super_coupon.js
+ * ^https://inf\.ds\.163\.com/v1/web/base/mine/userInfo url script-request-header https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/wyds.js
 
  *
  * [mitm]
@@ -25,7 +25,7 @@
  *
  * ============== Loon ==============
  * [Script]
- * cron "30 8 * * *" script-path=wyds_super_coupon.js, tag=网易大神会员外卖券
+ * cron "30 8 * * *" script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Egern/wyds.js, tag=网易大神会员外卖券
  *
  * [MITM]
  * hostname = inf.ds.163.com, vip.ds.163.com
