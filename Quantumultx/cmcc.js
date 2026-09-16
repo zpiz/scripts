@@ -6,7 +6,7 @@
 【Quantumult X 模板】直接复制到 QX 的 [rewrite_local] / [MITM]
 ============================================================
 [rewrite_local]
-^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/LN\/uamrandcodelogin\/fingerprintLogin url script-request-body https://raw.githubusercontent.com/你的用户名/你的仓库/main/cmccFingerprint.js
+^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/LN\/uamrandcodelogin\/fingerprintLogin url script-request-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/cmcc.js
 
 [MITM]
 hostname = client.app.coc.10086.cn
@@ -15,7 +15,7 @@ hostname = client.app.coc.10086.cn
 【Surge / Loon / Shadowrocket 模板】二选一，用不上就删掉
 ============================================================
 [Script]
-中国移动指纹登录 = type=http-request,pattern=^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/LN\/uamrandcodelogin\/fingerprintLogin,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/你的用户名/你的仓库/main/cmccFingerprint.js
+中国移动指纹登录 = type=http-request,pattern=^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/LN\/uamrandcodelogin\/fingerprintLogin,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/cmcc.js
 
 [MITM]
 hostname = client.app.coc.10086.cn
