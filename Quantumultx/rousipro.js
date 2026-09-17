@@ -1,8 +1,10 @@
 /*
 ------------------------------------------
+@Date: 2026.09.17 适配站点 API 迁移：/api/points/* -> /api/v1/* ；
+                 认证由 Authorization: Bearer <JWT> 改为 Cookie(__Host-peergo_session) + x-csrf-token
 @Date: 2026.07.06 修改请求逻辑，优化变量内容
 @Date: 2026.05.15
-@Description: PT-rousi签到
+@Description: PT-rousi 签到
 @Author: zpiz
 ------------------------------------------
 @Description:
@@ -11,167 +13,225 @@ new Env("Rousi Pro")
 cron 10 8 * * * rousipro.js
 
 [rewrite_local]
-^https:\/\/rousi\.pro\/api\/(me|points\/init|points\/balance|points\/attendance\/stats) url script-response-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
+^https:\/\/rousi\.pro\/api\/v1\/session url script-response-body https://raw.githubusercontent.com/zpiz/scripts/refs/heads/main/Quantumultx/rousipro.js
 
 [MITM]
 hostname = rousi.pro
 
 QingLong env:
-- rousipro_data: Bearer token, or JSON array [{"token":"Bearer xxx","userName":"name"}], or multiple tokens separated by newline / @ / &
-- Optional: BARK_PUSH or BARK_URL for Bark notification; BARK_SERVER defaults to https://api.day.app
+- rousipro_data: Cookie 串，形如 __Host-peergo_session=xxxxxxxx
+  （也可整体粘贴浏览器里复制出来的 Cookie；只填 session 值时会自动补键名）
+- 多账号：JSON 数组 [{"cookie":"__Host-peergo_session=xxx","userName":"name"}]，
+  或换行 / @ / & 分隔的多条 Cookie
+- 可选：ROUSI_MODE=fixed|random（默认 random，random 期望值 150.5 > fixed 100）
+- 可选：BARK_PUSH 或 BARK_URL 用于 Bark 通知；BARK_SERVER 默认 https://api.day.app
+
+注意：老版本存的 Bearer token 已随站点改版失效，需要重新抓 Cookie。
 ------------------------------------------
 */
 
 const $ = new Env("Rousi Pro");
 const ckName = "rousipro_data";
-const altCkNames = ["ROUSIPRO_DATA", "ROUSIPRO_TOKEN", "rousi_data", "rousi_token"];
+const altCkNames = ["ROUSIPRO_DATA", "ROUSI_COOKIE", "rousi_cookie", "ROUSIPRO_COOKIE", "rousi_data"];
+const SESSION_COOKIE_KEY = "__Host-peergo_session";
 const isRequest = typeof $request !== "undefined";
 let notifyMsg = [];
 let successCount = 0;
 let userCookie = loadAccounts();
 
 // ------------------------------------------------------------
-// 请求封装：统一维护固定请求头（UA/Origin/Referer 等），
-// 账号数据（rousipro_data）里只保留 token / userName，不再需要 UA。
+// 请求封装
+// 站点已改为「Session Cookie + CSRF」双因子：
+//   1) GET  /api/v1/session  取 csrf_token 与当前用户
+//   2) 写操作 (POST) 必须携带 x-csrf-token，并带 Origin 通过同源校验
+// 账号数据（rousipro_data）里只需要 Cookie。
 // ------------------------------------------------------------
 const BASE_URL = "https://rousi.pro";
+const API = {
+  session: "/api/v1/session",
+  attendance: "/api/v1/me/attendance",
+  economy: "/api/v1/me/economy?limit=30"
+};
 
-function buildHeaders(token, extra) {
+function buildHeaders(cookie, extra) {
   return {
-    "Authorization": token,
+    "Cookie": cookie,
     "Accept": "application/json, text/plain, */*",
-    "Content-Type": "application/json",
+    "Accept-Language": "zh-CN,zh;q=0.9",
     "Origin": BASE_URL,
-    "Referer": `${BASE_URL}/points`,
+    "Referer": `${BASE_URL}/account/economy?tab=attendance`,
     "User-Agent": defaultUA(),
     ...(extra || {})
   };
 }
 
-async function apiRequest(token, options) {
-  const url = options.url.startsWith("http") ? options.url : `${BASE_URL}${options.url}`;
-  const method = (options.method || "GET").toUpperCase();
-  const body = options.body ? JSON.stringify(options.body) : undefined;
-  const response = await $.request({
-    url,
-    method,
-    headers: buildHeaders(token, options.headers),
-    body,
-    timeout: 15000
-  });
-  const statusCode = response.statusCode || response.status || 0;
-  const data = $.toObj(response.body, response.body);
-  if (statusCode >= 400) {
-    const message = data?.message || response.body || `HTTP ${statusCode}`;
-    throw new Error(message);
+// 站点错误体为 RFC 7807 Problem Details：{code,title,detail,status}
+function pickError(data, body, statusCode) {
+  if (data && typeof data === "object") {
+    const detail = data.error ?? data.message ?? data.detail ?? data.reason;
+    const detailText = detail && typeof detail === "object"
+      ? (detail.message || JSON.stringify(detail))
+      : (detail ? String(detail) : "");
+    const text = [data.title, detailText].filter(Boolean).join("\uff1a");
+    if (text) return text;
   }
-  return data;
+  return typeof body === "string" && body ? body.slice(0, 200) : `HTTP ${statusCode}`;
+}
+
+// POST 写操作要求携带幂等键，缺失会被判为契约错误（400 contract_validation_failed）
+function uuidv4() {
+  const hex = "0123456789abcdef";
+  let out = "";
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) out += "-";
+    else if (i === 14) out += "4";
+    else if (i === 19) out += hex[(Math.random() * 4 | 0) + 8];
+    else out += hex[Math.random() * 16 | 0];
+  }
+  return out;
 }
 
 class RousiPro {
   constructor(user, index) {
-    if (typeof user === "string") user = { token: user };
+    if (typeof user === "string") user = { cookie: user };
     this.index = index;
-    this.token = normalizeToken(user.token || user.Authorization || user.authorization || "");
-    this.userName = user.userName || user.username || decodeJwtName(this.token) || `Account${index}`;
+    this.cookie = normalizeCookie(user.cookie || user.ck || user.Cookie || "");
+    this.userName = user.userName || user.username || `Account${index}`;
+    this.csrfToken = "";
   }
 
   log(message) {
     $.log(`\u300c${this.userName}\u300d${message}`);
   }
 
-  request(options) {
-    return apiRequest(this.token, options);
-  }
-
-  async init() {
-    const res = await this.request({ url: "/api/points/init" });
-    if (res?.code !== 0) throw new Error(res?.message || "init failed");
-    return res.data || {};
-  }
-
-  async signin() {
-    try {
-      const res = await this.request({
-        url: "/api/points/attendance",
-        method: "POST",
-        body: { mode: "random" }
-      });
-      if (res?.code === 0) {
-        const data = res.data || {};
-        const bonus = extractSigninBonus(data, res);
-        this.log(`\u2705 \u7b7e\u5230\u6210\u529f\uff0c\u672c\u6b21\u7b7e\u5230\u83b7\u5f97 ${formatNumber(bonus)} \u9b54\u529b\u503c`);
-        return { ...data, bonus };
-      }
-      const message = res?.message || "signin failed";
-      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
-        this.log(`\u26d4\ufe0f ${message}`);
-        return { already: true, message };
-      }
-      throw new Error(message);
-    } catch (e) {
-      const message = e?.message || String(e);
-      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
-        this.log(`\u26d4\ufe0f ${message}`);
-        return { already: true, message };
-      }
-      throw e;
+  async request(options) {
+    const url = options.url.startsWith("http") ? options.url : `${BASE_URL}${options.url}`;
+    const method = (options.method || "GET").toUpperCase();
+    const headers = buildHeaders(this.cookie, options.headers);
+    if (method !== "GET" && method !== "HEAD") {
+      // 写操作三件套：JSON Content-Type + CSRF + 幂等键，缺任意一项都会被判 400 契约错误
+      headers["Content-Type"] = "application/json";
+      if (this.csrfToken) headers["x-csrf-token"] = this.csrfToken;
+      headers["idempotency-key"] = uuidv4();
     }
+    const response = await $.request({
+      url,
+      method,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      timeout: 15000
+    });
+    const statusCode = response.statusCode || response.status || 0;
+    const raw = response.body;
+    const data = $.toObj(raw, raw);
+    if (statusCode >= 400) {
+      const error = new Error(pickError(data, raw, statusCode));
+      error.statusCode = statusCode;
+      error.code = data && typeof data === "object" ? data.code || "" : "";
+      error.data = data;
+      throw error;
+    }
+    return data;
   }
 
-  async balance() {
-    const res = await this.request({ url: "/api/points/balance" });
-    if (res?.code !== 0) throw new Error(res?.message || "balance query failed");
-    return res.data || {};
+  // 拉取会话：验证 Cookie 有效性 + 获取 csrf_token + 用户名
+  async session() {
+    const res = await this.request({ url: API.session });
+    this.csrfToken = res?.csrf_token || "";
+    if (!this.csrfToken) throw new Error("未取得 csrf_token，Cookie 可能已失效");
+    const name = res?.user?.display_name || res?.user?.username;
+    if (name && (!this.userName || /^Account\d+$/.test(this.userName))) this.userName = name;
+    return res || {};
   }
 
-  async stats() {
-    const res = await this.request({ url: "/api/points/attendance/stats" });
-    if (res?.code !== 0) throw new Error(res?.message || "attendance stats query failed");
-    return res.data || {};
+  async attendance() {
+    const res = await this.request({ url: API.attendance });
+    return res || {};
+  }
+
+  async claim() {
+    // QuanX/Surge 等环境没有 process，必须做存在性判断
+    const mode = (typeof process !== "undefined" && process.env?.ROUSI_MODE) || "random";
+    return await this.request({
+      url: API.attendance,
+      method: "POST",
+      body: { mode }
+    });
+  }
+
+  async economy() {
+    const res = await this.request({ url: API.economy });
+    return res || {};
   }
 
   async run() {
-    const before = await this.init().catch(() => null);
-    const today = before?.attendance?.server_today;
-    const attendedDates = before?.attendance?.attended_dates || [];
-    if (today && attendedDates.includes(today)) {
-      const message = "\u4eca\u65e5\u5df2\u7b7e\u5230";
+    // 1) 会话校验（同时刷新 csrf_token）
+    await this.session();
+
+    // 2) 签到状态判断：claimed_today 为布尔，替代旧版 attended_dates 比对
+    const forceClaim = $.isNode() && process.env.ROUSI_DEBUG_FORCE === "1";
+    const before = forceClaim ? {} : await this.attendance();
+    if (before.claimed_today) {
+      const message = "今日已签到";
       this.log(`\u26d4\ufe0f ${message}`);
-      notifyMsg.push(`\u300c${this.userName}\u300d${message}`);
+      notifyMsg.push(`\u300c${this.userName}\u300d${message}，连续${before.current_streak || 0}天，累计${before.total_days || 0}天`);
       return;
     }
 
-    const signin = await this.signin();
-    if (signin?.already) {
-      notifyMsg.push(`\u300c${this.userName}\u300d${signin.message || "\u4eca\u65e5\u5df2\u7b7e\u5230"}`);
-      return;
+    // 3) 签到
+    let record;
+    try {
+      record = await this.claim();
+    } catch (e) {
+      const message = e?.message || String(e);
+      if (e?.statusCode === 409 || e?.code === "attendance_already_claimed" || /已签到|已经签到|already/i.test(message)) {
+        this.log(`\u26d4\ufe0f ${message}`);
+        notifyMsg.push(`\u300c${this.userName}\u300d${message}`);
+        return;
+      }
+      throw e;
     }
 
-    const [balance, stats] = await Promise.all([
-      this.balance().catch(() => ({})),
-      this.stats().catch(() => ({}))
-    ]);
-    this.log(`\u5f53\u524d\u9b54\u529b\u503c: ${formatNumber(balance.karma)}\uff0cPT\u5e01: ${formatNumber(balance.credits)}\uff0c\u7b49\u7ea7: ${balance.level ?? "-"}`);
-    this.log(`\u7b7e\u5230\u7edf\u8ba1: \u8fde\u7eed${stats.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${stats.total_days || 0}\u5929`);
-    notifyMsg.push(`\u300c${this.userName}\u300d\u7b7e\u5230\u6210\u529f\uff0c\u672c\u6b21\u83b7\u5f97:${formatNumber(signin.bonus)}\u9b54\u529b\u503c\uff0c\u5f53\u524d\u9b54\u529b\u503c:${formatNumber(balance.karma)}\uff0c\u7d2f\u8ba1\u7b7e\u5230:${stats.total_days || 0}\u5929`);
+    const baseReward = toNumber(record?.base_reward);
+    const streakReward = toNumber(record?.streak_reward);
+    const expReward = toNumber(record?.experience_reward);
+    const totalReward = toNumber(record?.total_reward);
+
+    // 4) 余额 / 等级（economy 内一并返回）
+    const economy = await this.economy().catch(() => ({}));
+    const magic = toNumber(economy?.magic_balance);
+    const experience = toNumber(economy?.progress?.experience);
+    const level = economy?.progress?.level ?? "-";
+
+    this.log(`\u5f53\u524d\u9b54\u529b\u503c: ${formatNumber(magic)}\uff0c\u7ecf\u9a8c: ${formatNumber(experience)}\uff0c\u7b49\u7ea7: ${level}`);
+    this.log(`\u7b7e\u5230\u7edf\u8ba1: \u8fde\u7eed${record?.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1${record?.total_days || 0}\u5929`);
+    if (streakReward > 0) this.log(`\ud83c\udf89 \u8fde\u7eed\u7b7e\u5230\u91cc\u7a0b\u7891\u5956\u52b1 +${formatNumber(streakReward)} \u9b54\u529b\u503c`);
+
+    const gained = formatNumber(totalReward || (baseReward + streakReward));
+    notifyMsg.push(
+      `\u300c${this.userName}\u300d\u7b7e\u5230\u6210\u529f\uff0c\u672c\u6b21\u83b7\u5f97:${gained}\u9b54\u529b\u503c` +
+      (expReward ? `(+${formatNumber(expReward)}\u7ecf\u9a8c)` : "") +
+      `\uff0c\u5f53\u524d\u9b54\u529b\u503c:${formatNumber(magic)}\uff0c\u8fde\u7eed\u7b7e\u5230:${record?.current_streak || 0}\u5929\uff0c\u7d2f\u8ba1\u7b7e\u5230:${record?.total_days || 0}\u5929`
+    );
     successCount++;
   }
 }
 
+// ------------------------------------------------------------
+// 抓 Cookie：命中 /api/v1/session 时从请求头取 __Host-peergo_session
+// ------------------------------------------------------------
 async function getCookie() {
   if (!isRequest || $request.method === "OPTIONS") return;
   const headers = lowerHeaders($request.headers || {});
-  const token = normalizeToken(headers.authorization || "");
-  if (!token) {
-    $.msg($.name, "\u83b7\u53d6 Authorization \u5931\u8d25", "\u5f53\u524d\u8bf7\u6c42\u672a\u643a\u5e26 Bearer token");
+  const cookie = extractSessionCookie(headers.cookie || headers.Cookie || "");
+  if (!cookie) {
+    $.msg($.name, "\u83b7\u53d6 Cookie \u5931\u8d25", `\u5f53\u524d\u8bf7\u6c42\u672a\u643a\u5e26 ${SESSION_COOKIE_KEY}`);
     return;
   }
-  const body = $.toObj($response?.body, {});
-  const stats = body?.data?.stats || body?.data || {};
-  const userName = stats.username || stats.nickname || decodeJwtName(token) || `Account${userCookie.length + 1}`;
-  const newData = { token, userName };
-  const index = userCookie.findIndex(item => item.token === token || item.userName === userName);
+  const body = $.toObj($response?.body, {}) || {};
+  const userName = body?.user?.display_name || body?.user?.username || `Account${userCookie.length + 1}`;
+  const newData = { cookie, userName };
+  const index = userCookie.findIndex(item => item.cookie === cookie);
   if (index >= 0) userCookie[index] = newData;
   else userCookie.push(newData);
   $.setjson(userCookie, ckName);
@@ -180,7 +240,7 @@ async function getCookie() {
 
 async function main() {
   if (!userCookie.length) {
-    notifyMsg.push("\u672a\u627e\u5230\u8d26\u53f7\uff0c\u9752\u9f99\u8bf7\u914d\u7f6e\u73af\u5883\u53d8\u91cf rousipro_data");
+    notifyMsg.push("\u672a\u627e\u5230\u8d26\u53f7\uff0c\u9752\u9f99\u8bf7\u914d\u7f6e\u73af\u5883\u53d8\u91cf rousipro_data\uff08Cookie\uff09");
     return;
   }
   $.log(`\u5171\u627e\u5230 ${userCookie.length} \u4e2a\u8d26\u53f7`);
@@ -190,7 +250,10 @@ async function main() {
       await user.run();
     } catch (e) {
       const message = e?.message || String(e);
-      if (message.includes("\u4eca\u65e5\u5df2\u7b7e\u5230")) {
+      if (e?.statusCode === 401 || /登录|login|unauthor/i.test(message)) {
+        user.log(`\u26d4\ufe0f Cookie \u5df2\u5931\u6548\uff0c\u8bf7\u91cd\u65b0\u6293\u5305\u66f4\u65b0: ${message}`);
+        notifyMsg.push(`\u300c${user.userName}\u300dCookie \u5df2\u5931\u6548\uff0c\u8bf7\u91cd\u65b0\u6293\u5305\u66f4\u65b0`);
+      } else if (/已签到|already|claimed/i.test(message)) {
         user.log(`\u26d4\ufe0f ${message}`);
         notifyMsg.push(`\u300c${user.userName}\u300d${message}`);
       } else {
@@ -213,73 +276,57 @@ function loadAccounts() {
   const parsed = $.toObj(raw, null);
   if (Array.isArray(parsed)) return parsed.map(normalizeAccount).filter(Boolean);
   if (parsed && typeof parsed === "object") return [normalizeAccount(parsed)].filter(Boolean);
-  return raw.split(/\n|@|&/).map(item => item.trim()).filter(Boolean).map(token => normalizeAccount({ token }));
+  return raw.split(/\n|@|&/).map(item => item.trim()).filter(Boolean).map(item => normalizeAccount({ cookie: item })).filter(Boolean);
 }
 
 function normalizeAccount(account) {
   if (!account) return null;
-  if (typeof account === "string") return { token: normalizeToken(account) };
-  const token = normalizeToken(account.token || account.Authorization || account.authorization || "");
-  if (!token) return null;
-  // 只保留 token / userName，即使传入的是旧格式（带 userAgent/ua 等字段）也会被自动清理掉。
-  return { token, userName: account.userName || account.username || decodeJwtName(token) };
+  if (typeof account === "string") account = { cookie: account };
+  const cookie = normalizeCookie(account.cookie || account.ck || account.Cookie || "");
+  if (!cookie) return null;
+  const userName = account.userName || account.username || undefined;
+  return { cookie, userName };
 }
 
-function normalizeToken(token) {
-  token = String(token || "").trim();
-  if (!token) return "";
-  return /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`;
+// 支持三种输入：完整 Cookie 串 / 只有 session 值 / 带 "Cookie:" 前缀
+function normalizeCookie(input) {
+  let value = String(input || "").trim();
+  if (!value) return "";
+  value = value.replace(/^cookie\s*:\s*/i, "").trim();
+  if (value.includes(SESSION_COOKIE_KEY + "=")) {
+    const match = value.match(new RegExp(`${SESSION_COOKIE_KEY}=([^;\\s]+)`));
+    return match ? `${SESSION_COOKIE_KEY}=${match[1]}` : "";
+  }
+  // 只有 session 值（无键名）时自动补全
+  const session = value.split(";")[0].trim();
+  if (/^[A-Za-z0-9_\-]+$/.test(session)) return `${SESSION_COOKIE_KEY}=${session}`;
+  return "";
+}
+
+function extractSessionCookie(cookieHeader) {
+  const match = String(cookieHeader).match(new RegExp(`${SESSION_COOKIE_KEY}=([^;\\s]+)`));
+  return match ? `${SESSION_COOKIE_KEY}=${match[1]}` : "";
+}
+
+function toNumber(value) {
+  if (value === undefined || value === null || value === "") return 0;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
 }
 
 function formatNumber(value) {
   if (value === undefined || value === null || value === "") return "-";
   const num = Number(value);
-  return Number.isFinite(num) ? num.toFixed(2).replace(/\.00$/, "") : String(value);
+  if (!Number.isFinite(num)) return String(value);
+  return num.toFixed(2).replace(/\.00$/, "");
 }
 
-function extractSigninBonus(data, res) {
-  const candidates = [
-    data?.bonus,
-    data?.karma,
-    data?.points,
-    data?.reward,
-    data?.amount,
-    data?.value,
-    data?.delta,
-    data?.gained,
-    data?.gain,
-    data?.attendance_reward,
-    data?.reward_points,
-    res?.bonus,
-    res?.points
-  ];
-  const value = candidates.find(item => item !== undefined && item !== null && item !== "");
-  if (value !== undefined) return value;
-  const message = [data?.message, res?.message].filter(Boolean).join(" ");
-  const match = message.match(/(?:\u83b7\u5f97|\u5956\u52b1|\u589e\u52a0)\s*([+-]?\d+(?:\.\d+)?)/) || message.match(/([+-]?\d+(?:\.\d+)?)\s*(?:\u9b54\u529b|\u9b54\u529b\u503c|karma|points)/i);
-  return match ? match[1] : 0;
-}
 function lowerHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
 }
 
-function decodeJwtName(token) {
-  try {
-    const payload = token.replace(/^Bearer\s+/i, "").split(".")[1];
-    const json = JSON.parse(atobCompat(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    return json.username;
-  } catch (_) {
-    return null;
-  }
-}
-
-function atobCompat(str) {
-  if (typeof atob === "function") return atob(str);
-  return Buffer.from(str, "base64").toString("utf8");
-}
-
 function defaultUA() {
-  return "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1";
+  return "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1";
 }
 
 function randomInt(min, max) {
