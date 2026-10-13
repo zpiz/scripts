@@ -80,8 +80,8 @@ async function fetchKlineCloses(ctx, code, days) {
 function sparkline(closes, isUp) {
   const values = closes.filter(Number.isFinite);
   if (values.length < 2) return null;
-  const width = 120;
-  const height = 56;
+  const width = 150;
+  const height = 50;
   const padding = 3;
   const low = Math.min(...values);
   const high = Math.max(...values);
@@ -116,19 +116,25 @@ function buildRow(item, quote, stale) {
   const color = isUp ? '#FF3B30' : '#34C759';
   const chart = available ? sparkline(quote.closes || [], isUp) : null;
   return {
-    type: 'stack', direction: 'row', alignItems: 'center', gap: 10,
+    type: 'stack', direction: 'row', alignItems: 'center', gap: 6,
     opacity: stale ? 0.72 : 1,
     children: [
       {
-        type: 'stack', direction: 'column', alignItems: 'start', gap: 3, flex: 1,
+        type: 'stack', direction: 'column', gap: 3, flex: 1,
         children: [
-          { type: 'text', text: item.name, font: { size: 'subheadline', weight: 'semibold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, textAlign: 'left', maxLines: 1 },
-          { type: 'text', text: available ? String(item.symbol).toUpperCase() : '数据暂不可用', font: { size: 'caption2' }, textColor: { light: '#8E8E93', dark: '#98989D' }, textAlign: 'left', maxLines: 1 },
+          { type: 'stack', direction: 'row', children: [
+            { type: 'text', text: item.name, font: { size: 'subheadline', weight: 'semibold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, maxLines: 1 },
+            { type: 'spacer' },
+          ] },
+          { type: 'stack', direction: 'row', children: [
+            { type: 'text', text: available ? String(item.symbol).toUpperCase() : '数据暂不可用', font: { size: 'caption2' }, textColor: { light: '#8E8E93', dark: '#98989D' }, maxLines: 1 },
+            { type: 'spacer' },
+          ] },
         ],
       },
       chart
-        ? { type: 'image', src: chart, width: 64, height: 26, resizeMode: 'contain' }
-        : { type: 'spacer', length: 64 },
+        ? { type: 'image', src: chart, width: 90, height: 30, resizeMode: 'contain' }
+        : { type: 'spacer', length: 90 },
       {
         type: 'stack', direction: 'column', alignItems: 'end', gap: 3, width: 84,
         children: [
