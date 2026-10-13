@@ -6,58 +6,93 @@
 ------------------------------------------
 */
 
-export default async function(ctx) {
-  const currentUrl = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json";
+const API_PATH = "/v1/currencies/usd.json";
+const CACHE_CURRENT = "cached_currency_current";
+const CACHE_YESTERDAY = "cached_currency_yesterday";
+const CACHE_TIME = "cached_currency_time";
+const CACHE_PREVIOUS_FOR = "cached_currency_previous_for_date";
+const CACHE_STALE_MS = 72 * 60 * 60 * 1000;
 
-  let currentData = null;
-  let yesterdayData = null;
-  let isError = false;
-  let isUsingCache = false;
-
+function readCache(ctx, key, json = true) {
   try {
-    const respCurr = await ctx.http.get(currentUrl, { timeout: 5000 });
-    currentData = await respCurr.json();
+    return json ? ctx.storage.getJSON(key) : ctx.storage.get(key);
+  } catch (_) {
+    return null;
+  }
+}
 
-    if (currentData && currentData.date) {
-      const apiDate = new Date(currentData.date);
-      const prevDate = new Date(apiDate.getTime() - 86400000);
+function writeCache(ctx, key, value, json = true) {
+  try {
+    if (json) ctx.storage.setJSON(key, value);
+    else ctx.storage.set(key, value);
+  } catch (_) {}
+}
 
-      const yyyy = prevDate.getFullYear();
-      const mm = String(prevDate.getMonth() + 1).padStart(2, "0");
-      const dd = String(prevDate.getDate()).padStart(2, "0");
-      const prevDateStr = `${yyyy}-${mm}-${dd}`;
+function validRates(data) {
+  return data && /^\d{4}-\d{2}-\d{2}$/.test(data.date || "") &&
+    Number.isFinite(Date.parse(`${data.date}T00:00:00Z`)) &&
+    data.usd && Number.isFinite(data.usd.cny) && data.usd.cny > 0;
+}
 
-      const prevUrl = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${prevDateStr}/v1/currencies/usd.json`;
-      const respPrev = await ctx.http.get(prevUrl, { timeout: 5000 });
-      yesterdayData = await respPrev.json();
+function previousDate(date) {
+  const timestamp = Date.parse(`${date}T00:00:00Z`);
+  if (!Number.isFinite(timestamp)) throw new Error("Invalid rate date");
+  return new Date(timestamp - 86400000).toISOString().slice(0, 10);
+}
 
-      if (ctx.storage) {
-        ctx.storage.setJSON("cached_currency_current", currentData);
-        ctx.storage.setJSON("cached_currency_yesterday", yesterdayData);
-        ctx.storage.set("cached_currency_time", new Date().toISOString());
+async function fetchRates(ctx, date, deadline) {
+  const urls = [
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${date}${API_PATH}`,
+    `https://${date}.currency-api.pages.dev${API_PATH}`
+  ];
+  for (const url of urls) {
+    const remaining = deadline - Date.now();
+    if (remaining < 500) break;
+    try {
+      const response = await ctx.http.get(url, { timeout: Math.min(4000, remaining) });
+      if (response.status < 200 || response.status >= 300) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!validRates(data)) throw new Error("Invalid rate data");
+      return data;
+    } catch (_) {}
+  }
+  return null;
+}
+
+export default async function(ctx) {
+  const deadline = Date.now() + 8500;
+  const cachedCurrent = readCache(ctx, CACHE_CURRENT);
+  const cachedYesterday = readCache(ctx, CACHE_YESTERDAY);
+  const cachedTime = readCache(ctx, CACHE_TIME, false);
+  const latest = await fetchRates(ctx, "latest", deadline);
+
+  let currentData = latest || (validRates(cachedCurrent) ? cachedCurrent : null);
+  let yesterdayData = null;
+  const isUsingCache = !latest && !!currentData;
+  const isError = !currentData;
+  const parsedCacheTime = Date.parse(cachedTime || "");
+  const isStaleCache = isUsingCache && (!Number.isFinite(parsedCacheTime) || Date.now() - parsedCacheTime > CACHE_STALE_MS);
+
+  if (latest) {
+    const cachedPreviousFor = readCache(ctx, CACHE_PREVIOUS_FOR, false);
+    const expectedPreviousDate = previousDate(latest.date);
+    if (validRates(cachedYesterday) && cachedYesterday.date === expectedPreviousDate &&
+        (cachedPreviousFor === latest.date ||
+         (cachedCurrent && cachedCurrent.date === latest.date && cachedYesterday.date === expectedPreviousDate))) {
+      yesterdayData = cachedYesterday;
+    } else if (deadline - Date.now() > 500) {
+      yesterdayData = await fetchRates(ctx, expectedPreviousDate, deadline);
+      if (yesterdayData && yesterdayData.date !== expectedPreviousDate) yesterdayData = null;
+      if (yesterdayData) {
+        writeCache(ctx, CACHE_YESTERDAY, yesterdayData);
+        writeCache(ctx, CACHE_PREVIOUS_FOR, latest.date, false);
       }
-    } else {
-      throw new Error("Invalid API Data");
     }
-  } catch (e) {
-    if (ctx.storage) {
-      try {
-        const cachedCurr = ctx.storage.getJSON("cached_currency_current");
-        const cachedYest = ctx.storage.getJSON("cached_currency_yesterday");
-
-        if (cachedCurr && cachedYest) {
-          currentData = cachedCurr;
-          yesterdayData = cachedYest;
-          isUsingCache = true;
-        } else {
-          isError = true;
-        }
-      } catch (_) {
-        isError = true;
-      }
-    } else {
-      isError = true;
-    }
+    writeCache(ctx, CACHE_CURRENT, latest);
+    writeCache(ctx, CACHE_TIME, new Date().toISOString(), false);
+  } else if (currentData && validRates(cachedYesterday) &&
+             cachedYesterday.date === previousDate(currentData.date)) {
+    yesterdayData = cachedYesterday;
   }
 
   const getRate = (data, id) => {
@@ -70,7 +105,6 @@ export default async function(ctx) {
   const family = ctx.widgetFamily || "systemSmall";
   const isSmall = family === "systemSmall";
   const isLarge = family === "systemLarge" || family === "systemExtraLarge";
-
   const colorMainText = { light: "#000000", dark: "#FFFFFF" };
   const colorSubText = { light: "#8E8E93", dark: "#888888" };
   const colorBgStart = { light: "#FFFFFF", dark: "#1A1A2E" };
@@ -78,7 +112,6 @@ export default async function(ctx) {
   const colorTrendFlat = { light: "#8E8E93", dark: "#888888" };
   const colorTrendUp = "#FF3B30";
   const colorTrendDown = "#34C759";
-
   const currencyConfigs = isSmall
     ? [
         { id: "usd", name: "🇺🇸 USD" },
@@ -97,7 +130,6 @@ export default async function(ctx) {
         { id: "cad", name: "🇨🇦 CAD" },
         { id: "sgd", name: "🇸🇬 SGD" }
       ];
-
   const listData = currencyConfigs.map(c => {
     const curr = getRate(currentData, c.id);
     const yest = getRate(yesterdayData, c.id);
@@ -117,7 +149,6 @@ export default async function(ctx) {
         color = colorTrendDown;
       }
     }
-
     return {
       name: c.name,
       rate: curr ? curr.toFixed(2) : "--",
@@ -133,7 +164,6 @@ export default async function(ctx) {
     if (isUsingCache) txt += " ⚠️";
     return { type: "widget", children: [{ type: "text", text: txt }] };
   }
-
   if (family === "accessoryRectangular") {
     if (isError) return { type: "widget", children: [{ type: "text", text: "网络请求失败且无缓存" }] };
 
@@ -143,7 +173,6 @@ export default async function(ctx) {
       children: listData.slice(0, 3).map((d, index) => {
         let textStr = `${d.name}: ${d.rate} ${d.trendSymbol}`;
         if (index === 0 && isUsingCache) textStr += " (离线缓存)";
-
         return {
           type: "text",
           text: textStr,
@@ -156,7 +185,6 @@ export default async function(ctx) {
 
   if (family === "accessoryCircular") {
     if (isError) return { type: "widget", children: [{ type: "text", text: "Error" }] };
-
     return {
       type: "widget",
       children: [
@@ -177,12 +205,10 @@ export default async function(ctx) {
       ]
     };
   }
-
   const rowSpacing = isLarge ? 24 : isSmall ? 4 : 8;
   const titleSpacing = isLarge ? 28 : isSmall ? 8 : 12;
   const paddingVal = isLarge ? 24 : 16;
   const titleText = isSmall ? "汇率 (CNY)" : "汇率看板 (CNY)";
-
   const buildColItem = (item, isSmallFont) => ({
     type: "stack",
     direction: "row",
@@ -217,7 +243,6 @@ export default async function(ctx) {
       }
     ]
   });
-
   const contentChildren = [];
 
   if (!isError) {
@@ -230,7 +255,6 @@ export default async function(ctx) {
       const leftCol = [];
       const rightCol = [];
       const half = Math.ceil(listData.length / 2);
-
       listData.slice(0, half).forEach((item, index) => {
         leftCol.push(buildColItem(item, false));
         if (index < half - 1) leftCol.push({ type: "spacer", length: rowSpacing });
@@ -240,7 +264,6 @@ export default async function(ctx) {
         rightCol.push(buildColItem(item, false));
         if (index < listData.slice(half).length - 1) rightCol.push({ type: "spacer", length: rowSpacing });
       });
-
       contentChildren.push({
         type: "stack",
         direction: "row",
@@ -260,15 +283,13 @@ export default async function(ctx) {
       font: { size: "subheadline" }
     });
   }
-
   let displayTime = new Date().toISOString();
-  if (isUsingCache && ctx.storage) {
-    const cachedTime = ctx.storage.get("cached_currency_time");
-    if (cachedTime) displayTime = cachedTime;
-  }
+  if (isUsingCache && Number.isFinite(parsedCacheTime)) displayTime = cachedTime;
 
-  const timePrefixText = isUsingCache ? "⚠️ 离线缓存于" : "更新于";
-
+  const staleDate = Number.isFinite(parsedCacheTime)
+    ? new Date(parsedCacheTime).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" })
+    : "未知日期";
+  const timePrefixText = isStaleCache ? `⚠️ 旧数据 ${staleDate}` : isUsingCache ? "⚠️ 离线缓存于" : "更新于";
   return {
     type: "widget",
     refreshAfter: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
