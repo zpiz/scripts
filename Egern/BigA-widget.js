@@ -120,7 +120,7 @@ function buildRow(item, quote, stale) {
     opacity: stale ? 0.72 : 1,
     children: [
       {
-        type: 'stack', direction: 'column', gap: 3, flex: 1,
+        type: 'stack', direction: 'column', gap: 3, flex: 1, padding: [0, 0, 0, 15],
         children: [
           { type: 'stack', direction: 'row', children: [
             { type: 'text', text: item.name, font: { size: 'subheadline', weight: 'semibold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, maxLines: 1 },
@@ -136,16 +136,10 @@ function buildRow(item, quote, stale) {
         ? { type: 'image', src: chart, width: 110, height: 30, resizeMode: 'contain' }
         : { type: 'spacer', length: 110 },
       {
-        type: 'stack', direction: 'column', gap: 3, width: 84,
+        type: 'stack', direction: 'column', alignItems: 'end', gap: 3, width: 84,
         children: [
-          { type: 'stack', direction: 'row', children: [
-            { type: 'spacer' },
-            { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, maxLines: 1, minScale: 0.6 },
-          ] },
-          { type: 'stack', direction: 'row', children: [
-            { type: 'spacer' },
-            { type: 'text', text: available ? formatChange(quote.change) : '--', font: { size: 'caption2', weight: 'semibold' }, textColor: available ? color : '#8E8E93', maxLines: 1 },
-          ] },
+          { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, textAlign: 'right', maxLines: 1, minScale: 0.6 },
+          { type: 'text', text: available ? formatChange(quote.change) : '--', font: { size: 'caption2', weight: 'semibold' }, textColor: available ? color : '#8E8E93', textAlign: 'right', maxLines: 1 },
         ],
       },
     ],
