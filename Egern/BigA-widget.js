@@ -80,7 +80,7 @@ async function fetchKlineCloses(ctx, code, days) {
 function sparkline(closes, isUp) {
   const values = closes.filter(Number.isFinite);
   if (values.length < 2) return null;
-  const width = 150;
+  const width = 180;
   const height = 50;
   const padding = 3;
   const low = Math.min(...values);
@@ -133,13 +133,19 @@ function buildRow(item, quote, stale) {
         ],
       },
       chart
-        ? { type: 'image', src: chart, width: 90, height: 30, resizeMode: 'contain' }
-        : { type: 'spacer', length: 90 },
+        ? { type: 'image', src: chart, width: 110, height: 30, resizeMode: 'contain' }
+        : { type: 'spacer', length: 110 },
       {
-        type: 'stack', direction: 'column', alignItems: 'end', gap: 3, width: 84,
+        type: 'stack', direction: 'column', gap: 3, width: 84,
         children: [
-          { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, textAlign: 'right', maxLines: 1, minScale: 0.6 },
-          { type: 'text', text: available ? formatChange(quote.change) : '--', font: { size: 'caption2', weight: 'semibold' }, textColor: available ? color : '#8E8E93', textAlign: 'right', maxLines: 1 },
+          { type: 'stack', direction: 'row', children: [
+            { type: 'spacer' },
+            { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, maxLines: 1, minScale: 0.6 },
+          ] },
+          { type: 'stack', direction: 'row', children: [
+            { type: 'spacer' },
+            { type: 'text', text: available ? formatChange(quote.change) : '--', font: { size: 'caption2', weight: 'semibold' }, textColor: available ? color : '#8E8E93', maxLines: 1 },
+          ] },
         ],
       },
     ],
