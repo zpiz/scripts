@@ -116,23 +116,23 @@ function buildRow(item, quote, stale) {
   const color = isUp ? '#FF3B30' : '#34C759';
   const chart = available ? sparkline(quote.closes || [], isUp) : null;
   return {
-    type: 'stack', direction: 'row', alignItems: 'center', gap: 8,
+    type: 'stack', direction: 'row', alignItems: 'center', gap: 10,
     opacity: stale ? 0.72 : 1,
     children: [
       {
-        type: 'stack', direction: 'column', gap: 2, flex: 1,
+        type: 'stack', direction: 'column', alignItems: 'start', gap: 3, flex: 1,
         children: [
-          { type: 'text', text: item.name, font: { size: 'subheadline', weight: 'bold' }, textColor: { light: '#000000', dark: '#FFFFFF' }, maxLines: 1 },
-          { type: 'text', text: available ? (item.sub || '') : '数据暂不可用', font: { size: 'caption2' }, textColor: { light: '#8E8E93', dark: '#98989D' }, maxLines: 1 },
+          { type: 'text', text: item.name, font: { size: 'subheadline', weight: 'semibold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, textAlign: 'left', maxLines: 1 },
+          { type: 'text', text: available ? String(item.symbol).toUpperCase() : '数据暂不可用', font: { size: 'caption2' }, textColor: { light: '#8E8E93', dark: '#98989D' }, textAlign: 'left', maxLines: 1 },
         ],
       },
       chart
-        ? { type: 'image', src: chart, width: 60, height: 28, resizeMode: 'contain' }
-        : { type: 'spacer', width: 60 },
+        ? { type: 'image', src: chart, width: 64, height: 26, resizeMode: 'contain' }
+        : { type: 'spacer', length: 64 },
       {
-        type: 'stack', direction: 'column', gap: 2, width: 84,
+        type: 'stack', direction: 'column', alignItems: 'end', gap: 3, width: 84,
         children: [
-          { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#000000', dark: '#FFFFFF' }, textAlign: 'right', maxLines: 1, minScale: 0.6 },
+          { type: 'text', text: available ? formatPrice(quote.price) : '--', font: { size: 'footnote', weight: 'bold' }, textColor: { light: '#1C1C1E', dark: '#F2F2F7' }, textAlign: 'right', maxLines: 1, minScale: 0.6 },
           { type: 'text', text: available ? formatChange(quote.change) : '--', font: { size: 'caption2', weight: 'semibold' }, textColor: available ? color : '#8E8E93', textAlign: 'right', maxLines: 1 },
         ],
       },
@@ -199,14 +199,15 @@ export default async function (ctx) {
   const updateDate = hasFreshData ? now : (cacheIsUsable ? cached.savedAt : now);
   const status = hasFreshData ? '更新' : cacheIsUsable ? '缓存数据' : '数据暂不可用';
   return {
-    type: 'widget', backgroundColor: { light: '#FFFFFF', dark: '#1C1C1E' }, padding: [10, 14, 12, 14], gap: 8,
+    type: 'widget', backgroundColor: { light: '#FFFFFF', dark: '#1C1C1E' }, padding: [12, 16, 12, 16], gap: 9,
     children: [
-      { type: 'stack', direction: 'row', children: [
+      { type: 'stack', direction: 'row', alignItems: 'center', children: [
+        { type: 'text', text: 'A 股指数', font: { size: 'caption2', weight: 'semibold' }, textColor: { light: '#636366', dark: '#AEAEB2' } },
         { type: 'spacer' },
         { type: 'text', text: status, font: { size: 'caption2', weight: 'medium' }, textColor: hasFreshData || cacheIsUsable ? '#8E8E93' : '#FF3B30' },
         { type: 'text', text: ` ${new Date(updateDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, font: { size: 'caption2', weight: 'medium' }, textColor: '#8E8E93' },
       ] },
-      { type: 'stack', direction: 'column', gap: 8, flex: 1, children },
+      { type: 'stack', direction: 'column', alignItems: 'start', gap: 8, flex: 1, children },
     ],
   };
 }
