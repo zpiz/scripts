@@ -3,20 +3,20 @@ description: "实时显示 qBittorrent 的上下行速率、活动种子数与�
 author: "Gemini"
 
 compat_arguments:
-  QB_URL: "https://qb.你的域名.com:8080"
-  QB_USER: "admin"
-  QB_PASS: "adminadmin"
+  QB_URL:
+  QB_USER:
+  QB_PASS:
   
 compat_arguments_schema:
   QB_URL:
-    name: "qb url"
+#    name: "qb url"
     description: "输入qb url"
   QB_USER:
-    name: "qb管理账号"
+#    name: "qb管理账号"
     default_value: "admin"
     description: "输入qb账号"
   QB_PASS:
-    name: "qb管理账号密码"
+#    name: "qb管理账号密码"
     default_value: "azhu231!"
     description: "输入qb密码"
 
