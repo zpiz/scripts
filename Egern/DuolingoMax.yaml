@@ -1,1 +1,95 @@
-
+name: Duolingo Max 解锁 增强版
+description: Duolingo iOS 版解锁 Max 会员，实现无限体力、去除广告、解锁视频通话等，支持经验加倍和自定义限时挑战时长
+compat_arguments:
+  xp_boost: 'false'
+  multiplier: '2'
+  timer_switch: 'false'
+  timer_mins: '60'
+  unlock_all: 'false'
+  instant_clear: 'false'
+compat_arguments_schema:
+  xp_boost:
+    name: 经验加倍
+    description: 开启后练习将获得加倍经验
+    default_value: 'false'
+    options:
+    - 'true'
+    - 'false'
+  multiplier:
+    name: 选择经验倍数
+    description: 经验倍数
+    default_value: '2'
+    options:
+    - '2'
+    - '3'
+  timer_switch:
+    name: 限时挑战时间增强
+    description: 开启后可在限时挑战中自定义时长
+    default_value: 'false'
+    options:
+    - 'true'
+    - 'false'
+  timer_mins:
+    name: 自定义挑战时长(分钟)
+    description: 挑战时长
+    default_value: '60'
+  unlock_all:
+    name: 解锁所有关卡
+    description: 开启后将解锁当前课程的所有关卡
+    default_value: 'false'
+    options:
+    - 'true'
+    - 'false'
+  instant_clear:
+    name: 直接通关
+    description: 开启后进入关卡直接通关
+    default_value: 'false'
+    options:
+    - 'true'
+    - 'false'
+author: Takagivegeta
+homepage: https://github.com/TAKAGIVEGETA/MyScripts/tree/main/lingoDuo
+icon: https://github.com/TAKAGIVEGETA/MyScripts/blob/main/lingoDuo/lingoDuo.png?raw=true
+dns: {}
+rewrites:
+- name: 解锁Max
+  match: (?i)^https?://(ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(n|om)/2023-05-23/(batch|users/[^/?#]+)(?:[?#]|$)
+  actions:
+  - response_script:
+      name: 解锁Max
+      url: https://raw.githubusercontent.com/TAKAGIVEGETA/MyScripts/main/lingoDuo/lingoDuo-xaM-enhanced.js
+      env:
+        _compat.$argument: '{"xp_boost":false,"multiplier":"2","unlock_all":false}'
+        _compat.$argument_json: '1'
+      timeout: 120
+      body_required: true
+- name: 限时挑战时长修改
+  match: (?i)^https?://(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)/.*/live-ops-challenges
+  actions:
+  - response_script:
+      name: 限时挑战时长修改
+      url: https://raw.githubusercontent.com/TAKAGIVEGETA/MyScripts/main/lingoDuo/lingoDuo-time-modifier.js
+      env:
+        _compat.$argument: '{"timer_mins":60}'
+        _compat.$argument_json: '1'
+      timeout: 120
+      body_required: true
+  disabled: true
+- name: 直接通关(部分关卡)
+  match: (?i)^https?://(?:ios-api-[a-z0-9-]+|api\d+|stories)\.duolingo\.c(?:n|om)/(?:.*/sessions|api2/stories)
+  actions:
+  - response_script:
+      name: 直接通关(部分关卡)
+      url: https://raw.githubusercontent.com/TAKAGIVEGETA/MyScripts/main/lingoDuo/lingoDuo-clear.js
+      timeout: 120
+      body_required: true
+  disabled: true
+mitm:
+  hostnames:
+    includes:
+    - ios-api-*.duolingo.com
+    - ios-api-*.duolingo.cn
+    - api*.duolingo.com
+    - api*.duolingo.cn
+    - stories.duolingo.com
+    - stories.duolingo.cn
