@@ -16,6 +16,7 @@ const DEFAULT_SYMBOLS = [
 ];
 
 const CACHE_KEY = 'big-a-widget-cache-v1';
+const CHART_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000;
 const SINA_HEADERS = {
   Referer: 'https://finance.sina.com.cn',
   'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15',
@@ -106,6 +107,12 @@ function sparkline(closes, color) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+function usableChartCloses(closes) {
+  if (!Array.isArray(closes)) return [];
+  const values = closes.filter((value) => Number.isFinite(value) && value > 0);
+  return values.length >= 3 ? values : [];
+}
+
 function cacheGet(ctx) {
   try {
     return ctx.storage.getJSON(CACHE_KEY);
@@ -120,7 +127,7 @@ function cacheSet(ctx, value) {
   } catch (_) {}
 }
 
-function buildRow(item, quote, stale) {
+function buildRow(item, quote, stale, centerChart) {
   const available = quote && Number.isFinite(quote.price) && quote.price > 0;
   const isUp = available && quote.change >= 0;
   const color = available && quote.isPreviousClose ? '#8E8E93' : isUp ? '#FF3B30' : '#34C759';
@@ -145,6 +152,8 @@ function buildRow(item, quote, stale) {
       chart
         ? { type: 'image', src: chart, width: 110, height: 30, resizeMode: 'contain' }
         : { type: 'spacer', length: 110 },
+      // 中号在折线图右侧补足空白，左侧 flex 列会等量收窄，数值列保持原位。
+      ...(centerChart ? [{ type: 'spacer', length: 9 }] : []),
       {
         type: 'stack', direction: 'column', alignItems: 'end', gap: 3, width: 84,
         children: [
@@ -178,6 +187,7 @@ export default async function (ctx) {
 
   const cached = cacheGet(ctx);
   const cachedQuotes = cached && cached.quotes ? cached.quotes : {};
+  const now = Date.now();
   let realtime = new Map();
   try {
     realtime = await fetchRealtimeBatch(ctx, symbols.map((item) => item.symbol));
@@ -190,22 +200,35 @@ export default async function (ctx) {
     try {
       closes = await fetchKlineCloses(ctx, item.symbol, days, realtimeQuote.isPreviousClose ? realtimeQuote.tradeDate : null);
     } catch (_) {}
-    if (closes.length < 2) closes = [realtimeQuote.prevClose, realtimeQuote.price];
-    else if (closes[closes.length - 1] !== realtimeQuote.price) closes.push(realtimeQuote.price);
-    return { symbol: item.symbol, quote: { ...realtimeQuote, closes } };
+    closes = usableChartCloses(closes);
+    if (closes.length) {
+      if (closes[closes.length - 1] !== realtimeQuote.price) closes.push(realtimeQuote.price);
+      return { symbol: item.symbol, quote: { ...realtimeQuote, closes, chartSavedAt: now }, chartState: 'fresh' };
+    }
+    const previous = cachedQuotes[item.symbol];
+    const cachedCloses = usableChartCloses(previous && previous.closes);
+    const chartSavedAt = previous && (previous.chartSavedAt || cached.savedAt);
+    if (cachedCloses.length && Number.isFinite(chartSavedAt) && now - chartSavedAt <= CHART_CACHE_MAX_AGE) {
+      return { symbol: item.symbol, quote: { ...realtimeQuote, closes: cachedCloses, chartSavedAt }, chartState: 'cached' };
+    }
+    return { symbol: item.symbol, quote: { ...realtimeQuote, closes: [], chartSavedAt: null }, chartState: 'missing' };
   }));
 
   const freshQuotes = {};
+  const chartStates = {};
   for (const result of freshResults) {
-    if (result.status === 'fulfilled') freshQuotes[result.value.symbol] = result.value.quote;
+    if (result.status === 'fulfilled') {
+      freshQuotes[result.value.symbol] = result.value.quote;
+      chartStates[result.value.symbol] = result.value.chartState;
+    }
   }
   const hasFreshData = Object.keys(freshQuotes).length > 0;
-  const now = Date.now();
   if (hasFreshData) cacheSet(ctx, { savedAt: now, quotes: { ...cachedQuotes, ...freshQuotes } });
   const cacheIsUsable = cached && now - cached.savedAt <= cacheMaxAge;
   const rows = symbols.map((item) => {
     const fresh = freshQuotes[item.symbol];
-    return buildRow(item, fresh || (cacheIsUsable ? cachedQuotes[item.symbol] : null), !fresh);
+    return buildRow(item, fresh || (cacheIsUsable ? cachedQuotes[item.symbol] : null), !fresh,
+      family !== 'systemSmall' && family !== 'systemLarge' && family !== 'systemExtraLarge');
   });
   const children = [];
   rows.forEach((row, index) => {
@@ -213,7 +236,12 @@ export default async function (ctx) {
     if (index < rows.length - 1) children.push(divider());
   });
   const updateDate = hasFreshData ? now : (cacheIsUsable ? cached.savedAt : now);
-  const status = hasFreshData ? '更新' : cacheIsUsable ? '缓存数据' : '数据暂不可用';
+  const states = Object.values(chartStates);
+  const status = hasFreshData
+    ? Object.keys(freshQuotes).length < symbols.length ? '部分更新'
+      : states.includes('missing') ? '报价更新·图缺失'
+        : states.includes('cached') ? '报价更新·图缓存' : '更新'
+    : cacheIsUsable ? '缓存数据' : '数据暂不可用';
   return {
     type: 'widget', backgroundColor: { light: '#FFFFFF', dark: '#1C1C1E' }, padding: [12, 16, 12, 16], gap: 9,
     children: [
